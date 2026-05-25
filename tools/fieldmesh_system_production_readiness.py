@@ -397,6 +397,26 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_host_iio_bridge_lease_priority"] = native_ip.get(
             "host_iio_bridge_lease_priority"
         )
+        detail["native_ip_requires_python_bridge_test_glue_only"] = (
+            native_ip.get("requires_python_bridge_test_glue_only") is True
+        )
+        for side in ("board", "host"):
+            detail[f"native_ip_{side}_iio_bridge_python_pipeline_role"] = native_ip.get(
+                f"{side}_iio_bridge_python_pipeline_role"
+            )
+            detail[f"native_ip_{side}_iio_bridge_python_test_glue_only"] = (
+                native_ip.get(f"{side}_iio_bridge_python_test_glue_only") is True
+            )
+            detail[f"native_ip_{side}_iio_bridge_python_performance_critical_pipeline"] = (
+                native_ip.get(f"{side}_iio_bridge_python_performance_critical_pipeline")
+                is True
+            )
+            detail[f"native_ip_{side}_iio_bridge_performance_critical_pipeline_owner"] = (
+                native_ip.get(f"{side}_iio_bridge_performance_critical_pipeline_owner")
+            )
+            detail[f"native_ip_{side}_iio_bridge_production_data_plane"] = (
+                native_ip.get(f"{side}_iio_bridge_production_data_plane") is True
+            )
         detail["native_ip_board_iio_bridge_persistent_burst_helper"] = (
             native_ip.get("board_iio_bridge_persistent_burst_helper") is True
         )
@@ -530,6 +550,18 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         )
         detail["native_ip_host_iio_state_daemon_iio_transport_libiio_execution_count"] = (
             native_ip.get("host_iio_state_daemon_iio_transport_libiio_execution_count")
+        )
+        detail["native_ip_board_iio_state_daemon_iio_transport_execute_proven"] = (
+            native_ip.get("board_iio_state_daemon_iio_transport_execute_proven") is True
+        )
+        detail["native_ip_host_iio_state_daemon_iio_transport_execute_proven"] = (
+            native_ip.get("host_iio_state_daemon_iio_transport_execute_proven") is True
+        )
+        detail["native_ip_board_iio_state_daemon_iio_transport_libiio_transfer_worker_runs"] = (
+            native_ip.get("board_iio_state_daemon_iio_transport_libiio_transfer_worker_runs")
+        )
+        detail["native_ip_host_iio_state_daemon_iio_transport_libiio_transfer_worker_runs"] = (
+            native_ip.get("host_iio_state_daemon_iio_transport_libiio_transfer_worker_runs")
         )
         detail["native_ip_board_iio_bridge_sample_rate_hz"] = native_ip.get(
             "board_iio_bridge_sample_rate_hz"
@@ -935,6 +967,27 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 != "tcp-control-flow-udp-after-control"
             ):
                 blockers.append("native_ip_host_iio_hybrid_lease_priority_missing")
+            if native_ip.get("requires_python_bridge_test_glue_only") is not True:
+                blockers.append("native_ip_python_bridge_test_glue_guardrail_missing")
+            for side in ("board", "host"):
+                if native_ip.get(f"{side}_iio_bridge_python_pipeline_role") != "test_glue":
+                    blockers.append(f"native_ip_{side}_python_bridge_role_invalid")
+                if native_ip.get(f"{side}_iio_bridge_python_test_glue_only") is not True:
+                    blockers.append(f"native_ip_{side}_python_bridge_not_test_glue")
+                if (
+                    native_ip.get(f"{side}_iio_bridge_python_performance_critical_pipeline")
+                    is not False
+                ):
+                    blockers.append(f"native_ip_{side}_python_bridge_in_performance_pipeline")
+                if (
+                    native_ip.get(f"{side}_iio_bridge_performance_critical_pipeline_owner")
+                    != "c_firmware_fpga"
+                ):
+                    blockers.append(f"native_ip_{side}_performance_owner_not_c_firmware_fpga")
+                if native_ip.get(f"{side}_iio_bridge_production_data_plane") is not False:
+                    blockers.append(
+                        f"native_ip_{side}_python_bridge_claimed_production_data_plane"
+                    )
             if native_ip.get("board_iio_bridge_persistent_burst_helper") is not True:
                 blockers.append("native_ip_board_iio_persistent_burst_helper_missing")
             if native_ip.get("host_iio_bridge_persistent_burst_helper") is not True:
@@ -1069,6 +1122,26 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 blockers.append("native_ip_board_state_daemon_libiio_execution_count_missing")
             if not isinstance(host_libiio_exec_count, int) or host_libiio_exec_count < 1:
                 blockers.append("native_ip_host_state_daemon_libiio_execution_count_missing")
+            if native_ip.get("board_iio_state_daemon_iio_transport_execute_proven") is not True:
+                blockers.append("native_ip_board_state_daemon_iio_transport_execute_missing")
+            if native_ip.get("host_iio_state_daemon_iio_transport_execute_proven") is not True:
+                blockers.append("native_ip_host_state_daemon_iio_transport_execute_missing")
+            board_transfer_worker_runs = native_ip.get(
+                "board_iio_state_daemon_iio_transport_libiio_transfer_worker_runs"
+            )
+            host_transfer_worker_runs = native_ip.get(
+                "host_iio_state_daemon_iio_transport_libiio_transfer_worker_runs"
+            )
+            if (
+                not isinstance(board_transfer_worker_runs, int)
+                or board_transfer_worker_runs < 1
+            ):
+                blockers.append("native_ip_board_state_daemon_libiio_transfer_worker_missing")
+            if (
+                not isinstance(host_transfer_worker_runs, int)
+                or host_transfer_worker_runs < 1
+            ):
+                blockers.append("native_ip_host_state_daemon_libiio_transfer_worker_missing")
             if (
                 native_ip.get("board_iio_bridge_in_burst_priority_preemption_enabled")
                 is not True

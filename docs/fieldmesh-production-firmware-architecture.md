@@ -60,7 +60,11 @@ without pulling in the vendor experiment stack.
 - Do not hide RF/MAC timing behind opaque vendor sample applications.
 
 Python and JSON remain allowed only for development tools, inspection,
-regression reports, and factory diagnostics.
+regression reports, HIL/test glue, and factory diagnostics. In particular,
+`fieldmesh_iio_rf_worker_bridge_loop.py` must never be treated as a
+performance-critical packet/RF pipeline; production readiness evidence must
+mark that script as test glue only and bind the performance-critical owner to
+C firmware and FPGA logic.
 
 ## Requirements
 
@@ -141,7 +145,10 @@ Responsibilities:
   `FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1`, positive
   state-daemon libiio execution counts, and `python_libiio_execution_call=0`;
   the state-daemon IIO transport enqueue/drain evidence must also show positive
-  libiio execution counts for archived native-IP production captures.
+  libiio execution counts for archived native-IP production captures. The
+  follow-on `FIELDMESH_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER v1` execute proof
+  makes the state-daemon-owned transfer-worker boundary explicit while the
+  remaining helper path is retired.
 - Program scheduled TX/RX descriptors into the driver ring.
 - Read RX completion rings and deliver frames to `swarm0` or stream sockets.
 - Keep deterministic counters in fixed-size structs.

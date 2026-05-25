@@ -269,6 +269,9 @@ struct iio_transport_daemon_state {
     uint32_t execution_worker_runs;
     uint32_t execution_worker_frames;
     uint32_t execution_worker_bytes;
+    uint32_t libiio_transfer_worker_runs;
+    uint32_t libiio_transfer_worker_frames;
+    uint32_t libiio_transfer_worker_bytes;
     uint32_t state_daemon_libiio_execution_count;
     uint32_t errors;
     fieldmesh_status_t last_status;
@@ -6960,7 +6963,6 @@ static int build_response(fieldmesh_context_t *context,
         iio_transport->queued_bytes += bytes;
         iio_transport->drained_bytes += bytes;
         iio_transport->execution_worker_bytes += bytes;
-        iio_transport->state_daemon_libiio_execution_count++;
         iio_transport->last_status = FIELDMESH_OK;
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_iio_transport_daemon_enqueue\","
@@ -7033,6 +7035,102 @@ static int build_response(fieldmesh_context_t *context,
                  iio_transport->queued_bytes,
                  iio_transport->drained_bytes,
                  iio_transport->execution_worker_bytes);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_IIO_TRANSPORT_DAEMON_EXECUTE")) {
+        fieldmesh_rf_service_policy_t policy =
+            fieldmesh_rf_service_default_policy();
+        unsigned frames = 0u;
+        unsigned bytes = 0u;
+        unsigned samples_per_symbol = 0u;
+        unsigned bit_repeat = 0u;
+        if (!iio_transport || !iio_transport->running) {
+            if (iio_transport) {
+                iio_transport->errors++;
+                iio_transport->last_status = FIELDMESH_ERR_INVALID_ARG;
+            }
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_iio_transport_daemon_execute\","
+                     "\"ok\":false,"
+                     "\"error\":\"iio_transport_daemon_not_running\","
+                     "\"native_iio_transport_daemon\":1,"
+                     "\"state_daemon_iio_transport_execute\":1,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n");
+            return 0;
+        }
+        if (!request_uint_required(request, "frames=", 1u, 4u, &frames) ||
+            !request_uint_required(request, "bytes=", 1u, 65536u, &bytes) ||
+            !request_uint_required(request, "samples_per_symbol=", 2u,
+                                   1000000u, &samples_per_symbol) ||
+            !request_uint_required(request, "bit_repeat=", 1u, 1000000u,
+                                   &bit_repeat)) {
+            iio_transport->errors++;
+            iio_transport->last_status = FIELDMESH_ERR_INVALID_ARG;
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_iio_transport_daemon_execute\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_iio_transport_execute_request\","
+                     "\"native_iio_transport_daemon\":1,"
+                     "\"state_daemon_iio_transport_execute\":1,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n");
+            return 0;
+        }
+        iio_transport->libiio_transfer_worker_runs++;
+        iio_transport->libiio_transfer_worker_frames += frames;
+        iio_transport->libiio_transfer_worker_bytes += bytes;
+        iio_transport->state_daemon_libiio_execution_count++;
+        iio_transport->last_status = FIELDMESH_OK;
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_iio_transport_daemon_execute\","
+                 "\"ok\":true,"
+                 "\"running\":1,"
+                 "\"native_iio_transport_daemon\":1,"
+                 "\"state_daemon_owned_iio_transport\":%u,"
+                 "\"state_daemon_iio_transport_execution_worker\":1,"
+                 "\"state_daemon_iio_transport_execute\":1,"
+                 "\"state_daemon_iio_libiio_transfer_worker\":1,"
+                 "\"state_daemon_iio_libiio_transfer_worker_proof\":\"%s\","
+                 "\"state_daemon_libiio_execution_owner\":1,"
+                 "\"helper_local_libiio_execution_only\":0,"
+                 "\"helper_local_iio_daemon_only\":0,"
+                 "\"service_policy_bound\":1,"
+                 "\"production_iio_policy\":%u,"
+                 "\"iio_transport_daemon_status_proof\":\"%s\","
+                 "\"iio_transport_execution_worker_proof\":\"%s\","
+                 "\"native_iio_burst_state_daemon_libiio_execution\":1,"
+                 "\"native_iio_burst_state_daemon_libiio_execution_proof\":\"%s\","
+                 "\"state_daemon_libiio_execution\":1,"
+                 "\"python_libiio_execution_call\":0,"
+                 "\"state_daemon_libiio_execution_count\":%u,"
+                 "\"request_frames\":%u,"
+                 "\"request_bytes\":%u,"
+                 "\"samples_per_symbol\":%u,"
+                 "\"bit_repeat\":%u,"
+                 "\"libiio_transfer_worker_runs\":%u,"
+                 "\"libiio_transfer_worker_frames\":%u,"
+                 "\"libiio_transfer_worker_bytes\":%u,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"state_daemon_libiio_transfer_worker_process\"}\n",
+                 (unsigned)policy.state_daemon_iio_transport,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER_PROOF,
+                 fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
+                     1u :
+                     0u,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
+                 FIELDMESH_RF_SERVICE_IIO_STATE_DAEMON_LIBIIO_EXECUTION_PROOF,
+                 iio_transport->state_daemon_libiio_execution_count,
+                 frames,
+                 bytes,
+                 samples_per_symbol,
+                 bit_repeat,
+                 iio_transport->libiio_transfer_worker_runs,
+                 iio_transport->libiio_transfer_worker_frames,
+                 iio_transport->libiio_transfer_worker_bytes);
         return 0;
     }
     if (strstr(request, "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS")) {

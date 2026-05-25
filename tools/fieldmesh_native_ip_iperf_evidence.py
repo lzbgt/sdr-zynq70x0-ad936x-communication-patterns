@@ -88,6 +88,16 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     if not _is_true(report.get("iio_rf_bridge")):
         errors.append(f"{label}: IIO pipeline evidence requires iio_rf_bridge=true")
         return errors
+    if report.get("iio_bridge_python_pipeline_role") != "test_glue":
+        errors.append(f"{label}: Python RF bridge must be marked as test glue")
+    if report.get("iio_bridge_python_test_glue_only") is not True:
+        errors.append(f"{label}: Python RF bridge test-glue guardrail is missing")
+    if report.get("iio_bridge_python_performance_critical_pipeline") is not False:
+        errors.append(f"{label}: Python RF bridge must not be performance-critical")
+    if report.get("iio_bridge_performance_critical_pipeline_owner") != "c_firmware_fpga":
+        errors.append(f"{label}: performance-critical owner must be C/firmware/FPGA")
+    if report.get("iio_bridge_production_data_plane") is not False:
+        errors.append(f"{label}: Python RF bridge must not claim production data plane")
     if report.get("iio_bridge_rf_service_policy_proven") is not True:
         errors.append(f"{label}: IIO RF service policy C proof is missing")
     if report.get("iio_bridge_rf_service_policy_native_c") is not True:
@@ -687,6 +697,23 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         )
     if int(report.get("iio_bridge_state_daemon_iio_transport_enqueue_failures") or 0) != 0:
         errors.append(f"{label}: state-daemon IIO transport enqueue reported failures")
+    if report.get("iio_bridge_state_daemon_iio_transport_execute_proven") is not True:
+        errors.append(f"{label}: state-daemon IIO transport execute proof is missing")
+    state_executes = report.get("iio_bridge_state_daemon_iio_transport_executes")
+    state_transfer_runs = report.get(
+        "iio_bridge_state_daemon_iio_transport_libiio_transfer_worker_runs"
+    )
+    if not isinstance(state_executes, int) or state_executes < state_enqueues:
+        errors.append(f"{label}: state-daemon IIO transport execute count is below enqueue count")
+    if (
+        not isinstance(state_transfer_runs, int)
+        or state_transfer_runs < state_executes
+    ):
+        errors.append(
+            f"{label}: state-daemon libiio transfer worker did not cover executes"
+        )
+    if int(report.get("iio_bridge_state_daemon_iio_transport_execute_failures") or 0) != 0:
+        errors.append(f"{label}: state-daemon IIO transport execute reported failures")
     sample_rate_hz = report.get("iio_bridge_sample_rate_hz")
     rf_bandwidth_hz = report.get("iio_bridge_rf_bandwidth_hz")
     if not isinstance(sample_rate_hz, int) or sample_rate_hz <= 0:
@@ -1201,6 +1228,9 @@ def main() -> int:
         "requires_iio_ack_pipeline_evidence": bool(
             board_requires_ack_pipeline or host_requires_ack_pipeline
         ),
+        "requires_python_bridge_test_glue_only": bool(
+            _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+        ),
         "requires_iio_rf_burst_batch_evidence": bool(
             board_requires_burst_batch or host_requires_burst_batch
         ),
@@ -1260,6 +1290,9 @@ def main() -> int:
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
         "requires_iio_state_daemon_iio_transport": bool(
+            _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+        ),
+        "requires_iio_state_daemon_libiio_transfer_worker": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
         "requires_iio_in_burst_priority_preemption": bool(
@@ -1633,6 +1666,36 @@ def main() -> int:
         ),
         "board_iio_bridge_lease_priority": board.get("iio_bridge_lease_priority"),
         "host_iio_bridge_lease_priority": host.get("iio_bridge_lease_priority"),
+        "board_iio_bridge_python_pipeline_role": board.get(
+            "iio_bridge_python_pipeline_role"
+        ),
+        "host_iio_bridge_python_pipeline_role": host.get(
+            "iio_bridge_python_pipeline_role"
+        ),
+        "board_iio_bridge_python_test_glue_only": board.get(
+            "iio_bridge_python_test_glue_only"
+        ),
+        "host_iio_bridge_python_test_glue_only": host.get(
+            "iio_bridge_python_test_glue_only"
+        ),
+        "board_iio_bridge_python_performance_critical_pipeline": board.get(
+            "iio_bridge_python_performance_critical_pipeline"
+        ),
+        "host_iio_bridge_python_performance_critical_pipeline": host.get(
+            "iio_bridge_python_performance_critical_pipeline"
+        ),
+        "board_iio_bridge_performance_critical_pipeline_owner": board.get(
+            "iio_bridge_performance_critical_pipeline_owner"
+        ),
+        "host_iio_bridge_performance_critical_pipeline_owner": host.get(
+            "iio_bridge_performance_critical_pipeline_owner"
+        ),
+        "board_iio_bridge_production_data_plane": board.get(
+            "iio_bridge_production_data_plane"
+        ),
+        "host_iio_bridge_production_data_plane": host.get(
+            "iio_bridge_production_data_plane"
+        ),
         "board_iio_bridge_persistent_burst_helper": board.get(
             "iio_bridge_persistent_burst_helper"
         ),
@@ -1848,6 +1911,24 @@ def main() -> int:
         ),
         "host_iio_state_daemon_iio_transport_libiio_execution_count": host.get(
             "iio_bridge_state_daemon_iio_transport_libiio_execution_count"
+        ),
+        "board_iio_state_daemon_iio_transport_execute_proven": board.get(
+            "iio_bridge_state_daemon_iio_transport_execute_proven"
+        ),
+        "host_iio_state_daemon_iio_transport_execute_proven": host.get(
+            "iio_bridge_state_daemon_iio_transport_execute_proven"
+        ),
+        "board_iio_state_daemon_iio_transport_executes": board.get(
+            "iio_bridge_state_daemon_iio_transport_executes"
+        ),
+        "host_iio_state_daemon_iio_transport_executes": host.get(
+            "iio_bridge_state_daemon_iio_transport_executes"
+        ),
+        "board_iio_state_daemon_iio_transport_libiio_transfer_worker_runs": board.get(
+            "iio_bridge_state_daemon_iio_transport_libiio_transfer_worker_runs"
+        ),
+        "host_iio_state_daemon_iio_transport_libiio_transfer_worker_runs": host.get(
+            "iio_bridge_state_daemon_iio_transport_libiio_transfer_worker_runs"
         ),
         "board_iio_bridge_sample_rate_hz": board.get("iio_bridge_sample_rate_hz"),
         "host_iio_bridge_sample_rate_hz": host.get("iio_bridge_sample_rate_hz"),

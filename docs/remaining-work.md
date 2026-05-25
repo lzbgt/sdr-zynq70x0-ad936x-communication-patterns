@@ -118,6 +118,10 @@ path does not need to duplicate register-level IRQ logic. The C helper API also
 has a bounded `fieldmesh_fw_ring_irq_wait_poll()` predicate and the daemon has
 a read-only `FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_WAIT` command, which forms the
 userspace wait boundary before replacing polling with UIO IRQ/eventfd waits.
+The native-IP IIO bridge remains HIL/test glue only: production evidence must
+mark `fieldmesh_iio_rf_worker_bridge_loop.py` as `test_glue`, reject it as a
+performance-critical or production data plane, and prove the C/firmware/FPGA
+path owns performance-critical work.
 The C helper API now separates RAM-model IRQ clearing from hardware
 write-one-to-clear acknowledgement, which keeps future UIO/driver code from
 using read-modify-write semantics on a PL register. IRQ mask writes are split

@@ -95,6 +95,22 @@ def query_iio_transport_enqueue_once():
         raise SystemExit("daemon did not answer IIO transport daemon enqueue")
     replies.append(json.loads(data.decode("utf-8")))
 
+def query_iio_transport_execute_once():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(1.0)
+    try:
+        sock.sendto(
+            b"FIELDMESH_IIO_TRANSPORT_DAEMON_EXECUTE v1 "
+            b"frames=2 bytes=128 samples_per_symbol=48 bit_repeat=3",
+            ("127.0.0.1", port),
+        )
+        data, _ = sock.recvfrom(4096)
+    finally:
+        sock.close()
+    if b'"event":"sdk_daemon_iio_transport_daemon_execute"' not in data:
+        raise SystemExit("daemon did not answer IIO transport daemon execute")
+    replies.append(json.loads(data.decode("utf-8")))
+
 def query_modem_profile_decision_once():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(1.0)
@@ -119,6 +135,7 @@ query_policy_once()
 query_modem_profile_decision_once()
 query_iio_transport_start_once()
 query_iio_transport_enqueue_once()
+query_iio_transport_execute_once()
 query_iio_transport_once()
 time.sleep(0.6)
 query_once()
@@ -189,10 +206,16 @@ iio_transport_enqueues = [
     row for row in replies
     if row.get("event") == "sdk_daemon_iio_transport_daemon_enqueue"
 ]
+iio_transport_executes = [
+    row for row in replies
+    if row.get("event") == "sdk_daemon_iio_transport_daemon_execute"
+]
 if len(iio_transport_starts) != 1:
     raise SystemExit("daemon did not answer IIO transport daemon start")
 if len(iio_transport_enqueues) != 1:
     raise SystemExit("daemon did not answer IIO transport daemon enqueue")
+if len(iio_transport_executes) != 1:
+    raise SystemExit("daemon did not answer IIO transport daemon execute")
 policy = policy_replies[0]
 expected = {
     "ok": True,
@@ -388,6 +411,42 @@ expected_enqueue = {
 for key, value in expected_enqueue.items():
     if enqueue.get(key) != value:
         raise SystemExit(f"IIO transport daemon enqueue {key} mismatch: {enqueue}")
+execute = iio_transport_executes[0]
+expected_execute = {
+    "ok": True,
+    "running": 1,
+    "native_iio_transport_daemon": 1,
+    "state_daemon_owned_iio_transport": 1,
+    "state_daemon_iio_transport_execution_worker": 1,
+    "state_daemon_iio_transport_execute": 1,
+    "state_daemon_iio_libiio_transfer_worker": 1,
+    "state_daemon_iio_libiio_transfer_worker_proof": "FIELDMESH_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER v1",
+    "state_daemon_libiio_execution_owner": 1,
+    "helper_local_libiio_execution_only": 0,
+    "helper_local_iio_daemon_only": 0,
+    "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+    "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1",
+    "native_iio_burst_state_daemon_libiio_execution": 1,
+    "native_iio_burst_state_daemon_libiio_execution_proof": "FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1",
+    "state_daemon_libiio_execution": 1,
+    "python_libiio_execution_call": 0,
+    "request_frames": 2,
+    "request_bytes": 128,
+    "samples_per_symbol": 48,
+    "bit_repeat": 3,
+    "libiio_transfer_worker_runs": 1,
+    "libiio_transfer_worker_frames": 2,
+    "libiio_transfer_worker_bytes": 128,
+    "starts_rf_tx": 0,
+    "writes_hardware": 0,
+    "commands_executed": 0,
+    "next_boundary": "state_daemon_libiio_transfer_worker_process",
+}
+for key, value in expected_execute.items():
+    if execute.get(key) != value:
+        raise SystemExit(f"IIO transport daemon execute {key} mismatch: {execute}")
+if execute.get("state_daemon_libiio_execution_count") != 1:
+    raise SystemExit(f"IIO transport daemon execute count mismatch: {execute}")
 PY
 
 echo "fieldmesh_state_daemon_forever_check=pass"

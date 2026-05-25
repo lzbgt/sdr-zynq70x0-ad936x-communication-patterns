@@ -2958,6 +2958,17 @@ report = {
     "transport": "real_rf_phy" if real_rf_ready else "daemon_rf_driver_queue_bridge",
     "diagnostic_bridge": bool(allow_bridge),
     "iio_rf_bridge": bool(allow_iio),
+    "iio_bridge_python_pipeline_role": last_iio_bridge.get("python_pipeline_role") or "",
+    "iio_bridge_python_test_glue_only": bool(
+        last_iio_bridge.get("python_test_glue_only")
+    ),
+    "iio_bridge_python_performance_critical_pipeline": bool(
+        last_iio_bridge.get("python_performance_critical_pipeline")
+    ),
+    "iio_bridge_performance_critical_pipeline_owner": (
+        last_iio_bridge.get("performance_critical_pipeline_owner") or ""
+    ),
+    "iio_bridge_production_data_plane": bool(last_iio_bridge.get("production_data_plane")),
     "iio_bridge_lease_priority": str(last_iio_bridge.get("lease_priority") or ""),
     "iio_bridge_rf_service_policy_proven": bool(
         last_rf_service_policy.get("ok")
@@ -3204,6 +3215,18 @@ report = {
     ),
     "iio_bridge_state_daemon_iio_transport_libiio_execution_count": int(
         last_iio_bridge.get("state_daemon_iio_transport_libiio_execution_count") or 0
+    ),
+    "iio_bridge_state_daemon_iio_transport_execute_proven": bool(
+        last_iio_bridge.get("state_daemon_iio_transport_execute_proven")
+    ),
+    "iio_bridge_state_daemon_iio_transport_executes": int(
+        last_iio_bridge.get("state_daemon_iio_transport_executes") or 0
+    ),
+    "iio_bridge_state_daemon_iio_transport_libiio_transfer_worker_runs": int(
+        last_iio_bridge.get("state_daemon_iio_transport_libiio_transfer_worker_runs") or 0
+    ),
+    "iio_bridge_state_daemon_iio_transport_execute_failures": int(
+        last_iio_bridge.get("state_daemon_iio_transport_execute_failures") or 0
     ),
     "iio_bridge_sample_rate_hz": int(last_iio_bridge.get("sample_rate_hz") or 0),
     "iio_bridge_rf_bandwidth_hz": int(last_iio_bridge.get("rf_bandwidth_hz") or 0),

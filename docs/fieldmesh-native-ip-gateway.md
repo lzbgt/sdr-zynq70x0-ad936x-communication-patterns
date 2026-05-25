@@ -238,7 +238,13 @@ Minimum production gates for native TCP/IP:
   `tools/fieldmesh_iio_rf_worker_bridge_loop.py`. That loop repeatedly leases
   daemon RF-worker frames, sends each one through the guarded AD936x IIO
   over-air bridge, ingests the recovered frame into the peer daemon, and ACKs
-  the source only after successful ingest. This mode requires `EXECUTE_LIVE_RF`,
+  the source only after successful ingest. This Python loop is HIL/test glue
+  only; native-IP production evidence must report
+  `python_pipeline_role=test_glue`, `python_performance_critical_pipeline=0`,
+  `production_data_plane=0`, and
+  `performance_critical_pipeline_owner=c_firmware_fpga`. The performance
+  critical packet/RF workflow belongs in C firmware and FPGA logic, not in this
+  script. This mode requires `EXECUTE_LIVE_RF`,
   hardware-write/RF-TX/daemon-mutation approvals, production RF path evidence,
   and the exact over-air operator confirmation. Batch mode uses
   `FIELDMESH_RF_TX_LEASE_BATCH` and
@@ -511,7 +517,9 @@ Minimum production gates for native TCP/IP:
   proves `FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1`, so the same
   archive rejects captures where libiio execution is still a Python-paced
   helper call, and the state-daemon transport enqueue proof must now carry a
-  positive libiio execution count for the same burst work.
+  positive libiio execution count for the same burst work. The follow-on
+  `FIELDMESH_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER v1` execute proof binds the
+  request to the daemon-owned libiio transfer-worker boundary.
   That profile moved
   40 real-RF
   native-IP frames with zero bridge errors and completed a 4 Kbit/s UDP client

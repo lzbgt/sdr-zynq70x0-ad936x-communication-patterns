@@ -47,6 +47,25 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
         if not is_true(report.get(key)):
             blockers.append(blocker)
     if is_true(report.get("requires_iio_ack_pipeline_evidence")):
+        if report.get("requires_python_bridge_test_glue_only") is not True:
+            blockers.append("native_ip_python_bridge_test_glue_guardrail_missing")
+        for side in ("board", "host"):
+            if report.get(f"{side}_iio_bridge_python_pipeline_role") != "test_glue":
+                blockers.append(f"native_ip_{side}_python_bridge_role_invalid")
+            if report.get(f"{side}_iio_bridge_python_test_glue_only") is not True:
+                blockers.append(f"native_ip_{side}_python_bridge_not_test_glue")
+            if (
+                report.get(f"{side}_iio_bridge_python_performance_critical_pipeline")
+                is not False
+            ):
+                blockers.append(f"native_ip_{side}_python_bridge_in_performance_pipeline")
+            if (
+                report.get(f"{side}_iio_bridge_performance_critical_pipeline_owner")
+                != "c_firmware_fpga"
+            ):
+                blockers.append(f"native_ip_{side}_performance_owner_not_c_firmware_fpga")
+            if report.get(f"{side}_iio_bridge_production_data_plane") is not False:
+                blockers.append(f"native_ip_{side}_python_bridge_claimed_production_data_plane")
         if report.get("board_iio_ack_pipeline_exercised") is not True:
             blockers.append("native_ip_board_iio_ack_pipeline_not_exercised")
         if report.get("host_iio_ack_pipeline_exercised") is not True:
@@ -124,6 +143,8 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             )
         if report.get("requires_iio_state_daemon_iio_transport") is not True:
             blockers.append("native_ip_state_daemon_iio_transport_missing")
+        if report.get("requires_iio_state_daemon_libiio_transfer_worker") is not True:
+            blockers.append("native_ip_state_daemon_libiio_transfer_worker_missing")
         if report.get("requires_iio_in_burst_priority_preemption") is not True:
             blockers.append("native_ip_iio_in_burst_priority_preemption_missing")
         if report.get("requires_iio_rf_sub_burst_evidence") is not True:
@@ -278,6 +299,20 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_board_state_daemon_libiio_execution_count_missing")
         if not isinstance(host_libiio_exec_count, int) or host_libiio_exec_count < 1:
             blockers.append("native_ip_host_state_daemon_libiio_execution_count_missing")
+        if report.get("board_iio_state_daemon_iio_transport_execute_proven") is not True:
+            blockers.append("native_ip_board_state_daemon_iio_transport_execute_missing")
+        if report.get("host_iio_state_daemon_iio_transport_execute_proven") is not True:
+            blockers.append("native_ip_host_state_daemon_iio_transport_execute_missing")
+        board_transfer_worker_runs = report.get(
+            "board_iio_state_daemon_iio_transport_libiio_transfer_worker_runs"
+        )
+        host_transfer_worker_runs = report.get(
+            "host_iio_state_daemon_iio_transport_libiio_transfer_worker_runs"
+        )
+        if not isinstance(board_transfer_worker_runs, int) or board_transfer_worker_runs < 1:
+            blockers.append("native_ip_board_state_daemon_libiio_transfer_worker_missing")
+        if not isinstance(host_transfer_worker_runs, int) or host_transfer_worker_runs < 1:
+            blockers.append("native_ip_host_state_daemon_libiio_transfer_worker_missing")
         if (
             report.get("board_iio_native_iio_burst_state_daemon_modem_profile_proven")
             is not True
@@ -386,6 +421,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "requires_iio_ack_pipeline_evidence": report.get(
             "requires_iio_ack_pipeline_evidence"
         ),
+        "requires_python_bridge_test_glue_only": report.get(
+            "requires_python_bridge_test_glue_only"
+        ),
         "requires_iio_rf_burst_batch_evidence": report.get(
             "requires_iio_rf_burst_batch_evidence"
         ),
@@ -445,6 +483,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "requires_iio_state_daemon_iio_transport": report.get(
             "requires_iio_state_daemon_iio_transport"
+        ),
+        "requires_iio_state_daemon_libiio_transfer_worker": report.get(
+            "requires_iio_state_daemon_libiio_transfer_worker"
         ),
         "requires_iio_rf_sub_burst_evidence": report.get(
             "requires_iio_rf_sub_burst_evidence"
@@ -627,6 +668,36 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "board_iio_bridge_lease_priority": report.get("board_iio_bridge_lease_priority"),
         "host_iio_bridge_lease_priority": report.get("host_iio_bridge_lease_priority"),
+        "board_iio_bridge_python_pipeline_role": report.get(
+            "board_iio_bridge_python_pipeline_role"
+        ),
+        "host_iio_bridge_python_pipeline_role": report.get(
+            "host_iio_bridge_python_pipeline_role"
+        ),
+        "board_iio_bridge_python_test_glue_only": report.get(
+            "board_iio_bridge_python_test_glue_only"
+        ),
+        "host_iio_bridge_python_test_glue_only": report.get(
+            "host_iio_bridge_python_test_glue_only"
+        ),
+        "board_iio_bridge_python_performance_critical_pipeline": report.get(
+            "board_iio_bridge_python_performance_critical_pipeline"
+        ),
+        "host_iio_bridge_python_performance_critical_pipeline": report.get(
+            "host_iio_bridge_python_performance_critical_pipeline"
+        ),
+        "board_iio_bridge_performance_critical_pipeline_owner": report.get(
+            "board_iio_bridge_performance_critical_pipeline_owner"
+        ),
+        "host_iio_bridge_performance_critical_pipeline_owner": report.get(
+            "host_iio_bridge_performance_critical_pipeline_owner"
+        ),
+        "board_iio_bridge_production_data_plane": report.get(
+            "board_iio_bridge_production_data_plane"
+        ),
+        "host_iio_bridge_production_data_plane": report.get(
+            "host_iio_bridge_production_data_plane"
+        ),
         "board_iio_bridge_persistent_burst_helper": report.get(
             "board_iio_bridge_persistent_burst_helper"
         ),
@@ -800,6 +871,24 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_state_daemon_iio_transport_libiio_execution_count": report.get(
             "host_iio_state_daemon_iio_transport_libiio_execution_count"
+        ),
+        "board_iio_state_daemon_iio_transport_execute_proven": report.get(
+            "board_iio_state_daemon_iio_transport_execute_proven"
+        ),
+        "host_iio_state_daemon_iio_transport_execute_proven": report.get(
+            "host_iio_state_daemon_iio_transport_execute_proven"
+        ),
+        "board_iio_state_daemon_iio_transport_executes": report.get(
+            "board_iio_state_daemon_iio_transport_executes"
+        ),
+        "host_iio_state_daemon_iio_transport_executes": report.get(
+            "host_iio_state_daemon_iio_transport_executes"
+        ),
+        "board_iio_state_daemon_iio_transport_libiio_transfer_worker_runs": report.get(
+            "board_iio_state_daemon_iio_transport_libiio_transfer_worker_runs"
+        ),
+        "host_iio_state_daemon_iio_transport_libiio_transfer_worker_runs": report.get(
+            "host_iio_state_daemon_iio_transport_libiio_transfer_worker_runs"
         ),
         "board_iio_bridge_sample_rate_hz": report.get("board_iio_bridge_sample_rate_hz"),
         "host_iio_bridge_sample_rate_hz": report.get("host_iio_bridge_sample_rate_hz"),

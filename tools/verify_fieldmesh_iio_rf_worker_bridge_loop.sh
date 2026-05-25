@@ -745,6 +745,54 @@ if captured.get("text") != (
         f"state-daemon IIO transport enqueue must use daemon enqueue command: {captured}"
     )
 loop.validate_iio_transport_daemon_enqueue(iio_enqueue, "z203-to-z103", 2, 384)
+captured = {}
+def iio_transport_execute_request(host, port, text, timeout_ms):
+    captured["text"] = text
+    return {
+        "event": "sdk_daemon_iio_transport_daemon_execute",
+        "ok": True,
+        "running": 1,
+        "native_iio_transport_daemon": 1,
+        "state_daemon_owned_iio_transport": 1,
+        "state_daemon_iio_transport_execution_worker": 1,
+        "state_daemon_iio_transport_execute": 1,
+        "state_daemon_iio_libiio_transfer_worker": 1,
+        "state_daemon_iio_libiio_transfer_worker_proof": "FIELDMESH_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER v1",
+        "state_daemon_libiio_execution_owner": 1,
+        "helper_local_libiio_execution_only": 0,
+        "helper_local_iio_daemon_only": 0,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+        "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1",
+        "request_frames": 2,
+        "request_bytes": 384,
+        "samples_per_symbol": 48,
+        "bit_repeat": 3,
+        "state_daemon_libiio_execution_count": 1,
+        "libiio_transfer_worker_runs": 1,
+        "libiio_transfer_worker_frames": 2,
+        "libiio_transfer_worker_bytes": 384,
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "state_daemon_libiio_transfer_worker_process",
+    }
+bridge.request_daemon = iio_transport_execute_request
+try:
+    iio_execute = loop.iio_transport_daemon_execute(
+        "127.0.0.1", 55441, 10, 2, 384, 48, 3
+    )
+finally:
+    bridge.request_daemon = original_request
+if captured.get("text") != (
+    "FIELDMESH_IIO_TRANSPORT_DAEMON_EXECUTE v1 "
+    "frames=2 bytes=384 samples_per_symbol=48 bit_repeat=3"
+):
+    raise SystemExit(
+        f"state-daemon IIO transport execute must use daemon execute command: {captured}"
+    )
+loop.validate_iio_transport_daemon_execute(iio_execute, "z203-to-z103", 2, 384, 48, 3)
 print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_port_filter_check", "ok": True}, sort_keys=True))
 
 
@@ -1214,6 +1262,11 @@ required = [
     '"iio_bridge_max_consecutive_direction_batches_seen"',
     '"iio_bridge_direction_fair_service_yields"',
     '"iio_bridge_lease_priority"',
+    '"iio_bridge_python_pipeline_role"',
+    '"iio_bridge_python_test_glue_only"',
+    '"iio_bridge_python_performance_critical_pipeline"',
+    '"iio_bridge_performance_critical_pipeline_owner"',
+    '"iio_bridge_production_data_plane"',
     "FIELDMESH_RF_SERVICE_POLICY_SELF_TEST v1",
     "IIO_BRIDGE_NATIVE_SERVICE_BURST_LEASES",
     "--native-service-burst-leases",
@@ -1292,6 +1345,10 @@ required = [
     '"iio_bridge_state_daemon_iio_transport_enqueues"',
     '"iio_bridge_state_daemon_iio_transport_drains"',
     '"iio_bridge_state_daemon_iio_transport_enqueue_failures"',
+    '"iio_bridge_state_daemon_iio_transport_execute_proven"',
+    '"iio_bridge_state_daemon_iio_transport_executes"',
+    '"iio_bridge_state_daemon_iio_transport_libiio_transfer_worker_runs"',
+    '"iio_bridge_state_daemon_iio_transport_execute_failures"',
     '"iio_bridge_phy_adaptive_mcs_decision"',
     '"iio_bridge_phy_adaptive_mcs_decision_by_direction"',
     '"iio_bridge_phy_adaptive_mcs_live_quality_bound"',

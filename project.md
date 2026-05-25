@@ -242,7 +242,10 @@ user and vendor configuration.
   plus explicit link-adaptation, mesh-routing, and position-fusion loops. The
   reviewed `note2.md` gateway note further clarifies that `swarm0` lives on the
   Zynq board, not on the host, and that the default product should be a routed
-  Layer-3 SDR mesh gateway rather than a transparent Ethernet bridge.
+  Layer-3 SDR mesh gateway rather than a transparent Ethernet bridge. Project
+  guardrail: `fieldmesh_iio_rf_worker_bridge_loop.py` is HIL/test glue only; it
+  must never be treated as a performance-critical packet/RF pipeline, which
+  belongs in C firmware and FPGA logic.
 - `docs/fieldmesh-protocol-spec.md` - first implementation-facing FieldMesh
   packet, control-plane, mode-selection, and conducted-test spec.
 - `docs/fieldmesh-ap-sdk-architecture.md` - product-facing AP/broker and

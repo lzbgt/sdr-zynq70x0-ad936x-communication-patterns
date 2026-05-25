@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Move daemon RF-worker frames through the guarded IIO RF bridge in a loop.
+"""Test-glue harness for daemon RF-worker frames over the guarded IIO RF bridge.
 
 The single-frame bridge is the primitive used to prove one over-air FieldMesh
-frame. This wrapper is the continuous data-plane boundary needed by ICMP/TCP,
-UDP, and iperf: it repeatedly leases daemon RF TX frames, sends each frame
-through the guarded AD936x IIO path, ingests the recovered frame into the peer
-daemon, and ACKs the source only after successful peer ingest.
+frame. This wrapper is only a HIL/test harness: it may orchestrate daemon
+commands and evidence capture, but it must not be treated as a production or
+performance-critical data plane. Production performance paths belong in C,
+firmware, and FPGA logic.
 
 Default mode is dry-run and does not start RF, write hardware, mutate daemon
 queues, ingest frames, or ACK leases.
@@ -26,6 +26,8 @@ import fieldmesh_iio_rf_worker_bridge as bridge
 
 
 BATCH_MAGIC = b"FMBATCH1"
+PYTHON_PIPELINE_ROLE = "test_glue"
+PERFORMANCE_CRITICAL_PIPELINE_OWNER = "c_firmware_fpga"
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
@@ -624,6 +626,33 @@ def iio_transport_daemon_enqueue(
     return report
 
 
+def iio_transport_daemon_execute(
+    host: str,
+    port: int,
+    timeout_ms: int,
+    frames: int,
+    bytes_: int,
+    samples_per_symbol: int,
+    bit_repeat: int,
+) -> dict[str, Any]:
+    report = bridge.request_daemon(
+        host,
+        port,
+        "FIELDMESH_IIO_TRANSPORT_DAEMON_EXECUTE v1 "
+        f"frames={max(0, int(frames))} "
+        f"bytes={max(0, int(bytes_))} "
+        f"samples_per_symbol={max(0, int(samples_per_symbol))} "
+        f"bit_repeat={max(0, int(bit_repeat))}",
+        timeout_ms,
+    )
+    if report.get("event") != "sdk_daemon_iio_transport_daemon_execute":
+        raise SystemExit(
+            "expected sdk_daemon_iio_transport_daemon_execute, "
+            f"got {report.get('event')!r}"
+        )
+    return report
+
+
 def rf_service_scheduler_status(host: str, port: int, timeout_ms: int) -> dict[str, Any]:
     report = bridge.request_daemon(
         host,
@@ -798,7 +827,6 @@ def validate_iio_transport_daemon_enqueue(
         "enqueues",
         "drains",
         "execution_worker_runs",
-        "state_daemon_libiio_execution_count",
         "queued_frames",
         "drained_frames",
         "execution_worker_frames",
@@ -813,6 +841,65 @@ def validate_iio_transport_daemon_enqueue(
     if errors:
         raise SystemExit(
             f"{label} state-daemon IIO transport enqueue invalid: "
+            + "; ".join(errors)
+        )
+
+
+def validate_iio_transport_daemon_execute(
+    report: dict[str, Any],
+    label: str,
+    frames: int,
+    bytes_: int,
+    samples_per_symbol: int,
+    bit_repeat: int,
+) -> None:
+    errors: list[str] = []
+    expected = {
+        "ok": True,
+        "running": 1,
+        "native_iio_transport_daemon": 1,
+        "state_daemon_owned_iio_transport": 1,
+        "state_daemon_iio_transport_execution_worker": 1,
+        "state_daemon_iio_transport_execute": 1,
+        "state_daemon_iio_libiio_transfer_worker": 1,
+        "state_daemon_iio_libiio_transfer_worker_proof": (
+            "FIELDMESH_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER v1"
+        ),
+        "state_daemon_libiio_execution_owner": 1,
+        "helper_local_libiio_execution_only": 0,
+        "helper_local_iio_daemon_only": 0,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+        "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1",
+        "request_frames": frames,
+        "request_bytes": bytes_,
+        "samples_per_symbol": samples_per_symbol,
+        "bit_repeat": bit_repeat,
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "state_daemon_libiio_transfer_worker_process",
+    }
+    for key, expected_value in expected.items():
+        if report.get(key) != expected_value:
+            errors.append(f"{key}={report.get(key)!r} expected {expected_value!r}")
+    for key in (
+        "state_daemon_libiio_execution_count",
+        "libiio_transfer_worker_runs",
+        "libiio_transfer_worker_frames",
+    ):
+        value = report.get(key)
+        if not isinstance(value, int) or value < 1:
+            errors.append(f"{key}={value!r} expected positive integer")
+    value = report.get("libiio_transfer_worker_bytes")
+    if not isinstance(value, int) or value < bytes_:
+        errors.append(
+            f"libiio_transfer_worker_bytes={value!r} expected at least {bytes_!r}"
+        )
+    if errors:
+        raise SystemExit(
+            f"{label} state-daemon IIO transport execute invalid: "
             + "; ".join(errors)
         )
 
@@ -1826,6 +1913,7 @@ def run_batch(
     }
     write_json(frame_dir / "rf_worker_batch.json", batch_json)
     state_daemon_iio_transport_enqueue: dict[str, Any] = {}
+    state_daemon_iio_transport_execute: dict[str, Any] = {}
     if (
         args.execute_live_rf
         and args.require_native_rf_service_worker
@@ -2029,6 +2117,28 @@ def run_batch(
             or effective_bit_repeat
         )
         first_attempt_label = "retry-modem-preselect"
+    if (
+        args.execute_live_rf
+        and args.require_native_rf_service_worker
+        and args.native_service_burst_leases
+    ):
+        state_daemon_iio_transport_execute = iio_transport_daemon_execute(
+            direction["source_host"],
+            direction["source_port"],
+            min(args.daemon_timeout_ms, max(args.lease_timeout_ms, 250)),
+            len(batch_frames),
+            len(batch_payload),
+            effective_samples_per_symbol,
+            effective_bit_repeat,
+        )
+        validate_iio_transport_daemon_execute(
+            state_daemon_iio_transport_execute,
+            direction["name"],
+            len(batch_frames),
+            len(batch_payload),
+            effective_samples_per_symbol,
+            effective_bit_repeat,
+        )
     iq_report, iq_report_path, plan, plan_path, run_report, run_args = execute_iq_attempt(
         first_attempt_label,
         effective_samples_per_symbol,
@@ -2174,6 +2284,11 @@ def run_batch(
         "event": "fieldmesh_iio_rf_worker_bridge_batch",
         "ok": True,
         "mode": "execute-live-rf" if args.execute_live_rf else "dry-run",
+        "python_pipeline_role": PYTHON_PIPELINE_ROLE,
+        "python_test_glue_only": True,
+        "python_performance_critical_pipeline": False,
+        "performance_critical_pipeline_owner": PERFORMANCE_CRITICAL_PIPELINE_OWNER,
+        "production_data_plane": False,
         "tx_board": direction["tx_board"],
         "rx_board": direction["rx_board"],
         "frames": len(batch_frames),
@@ -2287,6 +2402,15 @@ def run_batch(
             state_daemon_iio_transport_enqueue.get("state_daemon_iio_transport_enqueue")
             == 1
             and state_daemon_iio_transport_enqueue.get("state_daemon_iio_transport_drain")
+            == 1
+        ),
+        "state_daemon_iio_transport_execute": state_daemon_iio_transport_execute,
+        "state_daemon_iio_transport_execute_proven": bool(
+            state_daemon_iio_transport_execute.get("state_daemon_iio_transport_execute")
+            == 1
+            and state_daemon_iio_transport_execute.get(
+                "state_daemon_iio_libiio_transfer_worker"
+            )
             == 1
         ),
         "iq_iio_live_run_attempts": run_attempts,
@@ -2520,6 +2644,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "state_daemon_iio_transport_drains": 0,
         "state_daemon_iio_transport_execution_worker_runs": 0,
         "state_daemon_iio_transport_libiio_execution_count": 0,
+        "state_daemon_iio_transport_executes": 0,
+        "state_daemon_iio_transport_libiio_transfer_worker_runs": 0,
+        "state_daemon_iio_transport_execute_failures": 0,
         "state_daemon_iio_transport_enqueue_failures": 0,
         "in_burst_priority_preemptions": 0,
         "in_burst_priority_multiplexing_events": 0,
@@ -2623,6 +2750,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "event": "fieldmesh_iio_rf_worker_bridge_loop",
             "ok": moved_frames > 0,
             "mode": "execute-live-rf" if args.execute_live_rf else "dry-run",
+            "python_pipeline_role": PYTHON_PIPELINE_ROLE,
+            "python_test_glue_only": True,
+            "python_performance_critical_pipeline": False,
+            "performance_critical_pipeline_owner": PERFORMANCE_CRITICAL_PIPELINE_OWNER,
+            "production_data_plane": False,
             "transport": "real_rf_phy" if args.execute_live_rf else "guarded_iio_rf_dry_run",
             "directions": args.directions,
             "duration_s": args.duration_s,
@@ -2806,6 +2938,32 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             ],
             "state_daemon_iio_transport_enqueue_failures": counts[
                 "state_daemon_iio_transport_enqueue_failures"
+            ],
+            "state_daemon_iio_transport_execute_proven": bool(
+                not (
+                    args.execute_live_rf
+                    and args.native_service_burst_leases
+                    and args.require_native_rf_service_worker
+                )
+                or (
+                    counts["state_daemon_iio_transport_executes"] > 0
+                    and counts[
+                        "state_daemon_iio_transport_libiio_transfer_worker_runs"
+                    ]
+                    >= counts["state_daemon_iio_transport_executes"]
+                    and counts["state_daemon_iio_transport_execute_failures"] == 0
+                    and counts["state_daemon_iio_transport_executes"]
+                    >= counts["batches_moved"]
+                )
+            ),
+            "state_daemon_iio_transport_executes": counts[
+                "state_daemon_iio_transport_executes"
+            ],
+            "state_daemon_iio_transport_libiio_transfer_worker_runs": counts[
+                "state_daemon_iio_transport_libiio_transfer_worker_runs"
+            ],
+            "state_daemon_iio_transport_execute_failures": counts[
+                "state_daemon_iio_transport_execute_failures"
             ],
             "in_burst_priority_preemption_enabled": bool(args.native_service_burst_leases),
             "in_burst_priority_preemption_exercised": bool(
@@ -3620,20 +3778,40 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             and enqueue.get("state_daemon_iio_transport_execute") == 1
             and enqueue.get("state_daemon_iio_transport_execution_worker") == 1
             and enqueue.get("state_daemon_libiio_execution_owner") == 1
-            and isinstance(enqueue.get("state_daemon_libiio_execution_count"), int)
-            and enqueue.get("state_daemon_libiio_execution_count") >= 1
             and enqueue.get("helper_local_libiio_execution_only") == 0
             and enqueue.get("helper_local_iio_daemon_only") == 0
         ):
             counts["state_daemon_iio_transport_enqueues"] += 1
             counts["state_daemon_iio_transport_drains"] += 1
             counts["state_daemon_iio_transport_execution_worker_runs"] += 1
-            counts["state_daemon_iio_transport_libiio_execution_count"] = max(
-                counts["state_daemon_iio_transport_libiio_execution_count"],
-                int(enqueue.get("state_daemon_libiio_execution_count")),
-            )
         else:
             counts["state_daemon_iio_transport_enqueue_failures"] += 1
+        execute = report.get("state_daemon_iio_transport_execute")
+        if (
+            isinstance(execute, dict)
+            and execute.get("state_daemon_iio_transport_execute") == 1
+            and execute.get("state_daemon_iio_libiio_transfer_worker") == 1
+            and execute.get("state_daemon_iio_libiio_transfer_worker_proof")
+            == "FIELDMESH_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER v1"
+            and execute.get("state_daemon_libiio_execution_owner") == 1
+            and execute.get("helper_local_libiio_execution_only") == 0
+            and execute.get("helper_local_iio_daemon_only") == 0
+            and isinstance(execute.get("state_daemon_libiio_execution_count"), int)
+            and execute.get("state_daemon_libiio_execution_count") >= 1
+            and isinstance(execute.get("libiio_transfer_worker_runs"), int)
+            and execute.get("libiio_transfer_worker_runs") >= 1
+        ):
+            counts["state_daemon_iio_transport_executes"] += 1
+            counts["state_daemon_iio_transport_libiio_execution_count"] = max(
+                counts["state_daemon_iio_transport_libiio_execution_count"],
+                int(execute.get("state_daemon_libiio_execution_count")),
+            )
+            counts["state_daemon_iio_transport_libiio_transfer_worker_runs"] = max(
+                counts["state_daemon_iio_transport_libiio_transfer_worker_runs"],
+                int(execute.get("libiio_transfer_worker_runs")),
+            )
+        else:
+            counts["state_daemon_iio_transport_execute_failures"] += 1
 
     def record_served_direction(direction_name: str) -> None:
         nonlocal last_served_direction
