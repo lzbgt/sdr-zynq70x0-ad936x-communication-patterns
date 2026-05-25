@@ -29,6 +29,8 @@ typedef enum fieldmesh_rf_service_lease_priority {
 #define FIELDMESH_RF_SERVICE_DEFAULT_STATE_DAEMON_IIO_TRANSPORT 1u
 #define FIELDMESH_RF_SERVICE_DEFAULT_STATE_DAEMON_IIO_EXECUTION_WORKER 1u
 #define FIELDMESH_RF_MODEM_PROFILE_FAST_MIN_RAW_BITRATE_BPS 20000u
+#define FIELDMESH_RF_MODEM_PROFILE_FAST_MIN_DECODE_ATTEMPTS 4u
+#define FIELDMESH_RF_MODEM_PROFILE_FAST_MAX_PRIMARY_PER_MILLE 0u
 #define FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF \
     "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1"
 #define FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF \
@@ -56,6 +58,15 @@ typedef enum fieldmesh_rf_modem_profile_decision {
     FIELDMESH_RF_MODEM_PROFILE_DECISION_FAST_PRIMARY = 1,
     FIELDMESH_RF_MODEM_PROFILE_DECISION_RETRY_FALLBACK = 2,
 } fieldmesh_rf_modem_profile_decision_t;
+
+typedef struct fieldmesh_rf_modem_profile_quality {
+    uint32_t primary_decode_attempts;
+    uint32_t primary_decode_successes;
+    uint32_t primary_crc_failures;
+    uint32_t retry_decode_attempts;
+    uint32_t retry_decode_successes;
+    uint32_t retry_crc_failures;
+} fieldmesh_rf_modem_profile_quality_t;
 
 static inline fieldmesh_rf_service_policy_t
 fieldmesh_rf_service_default_policy(void)
@@ -292,6 +303,61 @@ static inline int fieldmesh_rf_modem_profile_high_rate_proven(
                                              primary_decode_ok,
                                              modem_retry_used) ==
            FIELDMESH_RF_MODEM_PROFILE_DECISION_FAST_PRIMARY;
+}
+
+static inline uint32_t fieldmesh_rf_modem_profile_per_mille(
+    uint32_t attempts,
+    uint32_t successes,
+    uint32_t crc_failures)
+{
+    uint32_t failures;
+
+    if (attempts == 0u) {
+        return 1000u;
+    }
+    failures = attempts > successes ? attempts - successes : 0u;
+    failures += crc_failures;
+    if (failures > attempts) {
+        failures = attempts;
+    }
+    return (failures * 1000u + attempts / 2u) / attempts;
+}
+
+static inline int fieldmesh_rf_modem_profile_quality_ready(
+    const fieldmesh_rf_modem_profile_quality_t *quality)
+{
+    return quality &&
+           quality->primary_decode_attempts >=
+               FIELDMESH_RF_MODEM_PROFILE_FAST_MIN_DECODE_ATTEMPTS;
+}
+
+static inline int fieldmesh_rf_modem_profile_quality_fast_primary_ok(
+    const fieldmesh_rf_modem_profile_quality_t *quality)
+{
+    return fieldmesh_rf_modem_profile_quality_ready(quality) &&
+           quality->retry_decode_attempts == 0u &&
+           fieldmesh_rf_modem_profile_per_mille(
+               quality->primary_decode_attempts,
+               quality->primary_decode_successes,
+               quality->primary_crc_failures) <=
+               FIELDMESH_RF_MODEM_PROFILE_FAST_MAX_PRIMARY_PER_MILLE;
+}
+
+static inline fieldmesh_rf_modem_profile_decision_t
+fieldmesh_rf_modem_profile_decide_from_quality(
+    uint32_t primary_raw_bitrate_bps,
+    uint32_t effective_raw_bitrate_bps,
+    const fieldmesh_rf_modem_profile_quality_t *quality)
+{
+    if (!fieldmesh_rf_modem_profile_quality_ready(quality)) {
+        return FIELDMESH_RF_MODEM_PROFILE_DECISION_HOLD;
+    }
+    if (fieldmesh_rf_modem_profile_quality_fast_primary_ok(quality)) {
+        return fieldmesh_rf_modem_profile_decide(primary_raw_bitrate_bps,
+                                                 effective_raw_bitrate_bps, 1u,
+                                                 0u);
+    }
+    return FIELDMESH_RF_MODEM_PROFILE_DECISION_RETRY_FALLBACK;
 }
 
 #ifdef __cplusplus

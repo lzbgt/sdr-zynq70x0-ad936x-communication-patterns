@@ -123,6 +123,8 @@ Responsibilities:
   policy already proves the first adaptive modem decision boundary: fast-primary
   PHY evidence requires primary decode success, no retry use, and effective raw
   rate at or above 20 kbit/s, while retry fallback is classified separately.
+  The native policy also accepts measured decode-quality counters and only
+  selects fast primary after at least four zero-PER primary decode attempts.
 - Program scheduled TX/RX descriptors into the driver ring.
 - Read RX completion rings and deliver frames to `swarm0` or stream sockets.
 - Keep deterministic counters in fixed-size structs.

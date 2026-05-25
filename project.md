@@ -1461,7 +1461,11 @@ user and vendor configuration.
   daemon now exposes this as a shared native C adaptive modem profile policy:
   `fast_primary` requires primary decode success, no retry use, and effective
   raw PHY rate at or above 20 kbit/s, while `retry_fallback` is explicitly
-  classified as non-high-rate evidence. The
+  classified as non-high-rate evidence. The same policy now consumes measured
+  decode quality counters: at least four primary decode attempts, zero primary
+  PER/CRC failures, and no retry attempts are required before selecting the
+  fast profile; insufficient samples hold the current profile instead of
+  guessing. The
   Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
   already interrupted by the wrapper timeout, this is not production `iperf3`

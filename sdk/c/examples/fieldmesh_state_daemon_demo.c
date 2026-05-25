@@ -3330,6 +3330,24 @@ static int build_response(fieldmesh_context_t *context,
             fieldmesh_rf_modem_profile_decide(21333u, 21333u, 1u, 0u);
         fieldmesh_rf_modem_profile_decision_t retry_profile_decision =
             fieldmesh_rf_modem_profile_decide(21333u, 10666u, 0u, 1u);
+        fieldmesh_rf_modem_profile_quality_t fast_quality = {
+            4u, 4u, 0u, 0u, 0u, 0u
+        };
+        fieldmesh_rf_modem_profile_quality_t retry_quality = {
+            4u, 3u, 1u, 1u, 1u, 0u
+        };
+        fieldmesh_rf_modem_profile_quality_t insufficient_quality = {
+            1u, 1u, 0u, 0u, 0u, 0u
+        };
+        fieldmesh_rf_modem_profile_decision_t fast_quality_decision =
+            fieldmesh_rf_modem_profile_decide_from_quality(
+                21333u, 21333u, &fast_quality);
+        fieldmesh_rf_modem_profile_decision_t retry_quality_decision =
+            fieldmesh_rf_modem_profile_decide_from_quality(
+                21333u, 10666u, &retry_quality);
+        fieldmesh_rf_modem_profile_decision_t insufficient_quality_decision =
+            fieldmesh_rf_modem_profile_decide_from_quality(
+                21333u, 21333u, &insufficient_quality);
 
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_rf_service_policy_self_test\","
@@ -3363,6 +3381,15 @@ static int build_response(fieldmesh_context_t *context,
                  "\"retry_fallback_decision\":\"%s\","
                  "\"fast_primary_high_rate_proven\":%u,"
                  "\"retry_fallback_high_rate_proven\":%u,"
+                 "\"adaptive_modem_profile_measured_quality_policy\":1,"
+                 "\"adaptive_modem_profile_measured_quality_native_c\":1,"
+                 "\"fast_primary_min_decode_attempts\":%u,"
+                 "\"fast_primary_max_primary_per_mille\":%u,"
+                 "\"fast_primary_quality_per_mille\":%u,"
+                 "\"retry_fallback_quality_per_mille\":%u,"
+                 "\"fast_primary_quality_decision\":\"%s\","
+                 "\"retry_fallback_quality_decision\":\"%s\","
+                 "\"insufficient_quality_decision\":\"%s\","
                  "\"uses_json_on_air\":0,"
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0,"
@@ -3397,7 +3424,23 @@ static int build_response(fieldmesh_context_t *context,
                  fieldmesh_rf_modem_profile_high_rate_proven(
                      21333u, 21333u, 1u, 0u) ? 1u : 0u,
                  fieldmesh_rf_modem_profile_high_rate_proven(
-                     21333u, 10666u, 0u, 1u) ? 1u : 0u);
+                     21333u, 10666u, 0u, 1u) ? 1u : 0u,
+                 (unsigned)FIELDMESH_RF_MODEM_PROFILE_FAST_MIN_DECODE_ATTEMPTS,
+                 (unsigned)FIELDMESH_RF_MODEM_PROFILE_FAST_MAX_PRIMARY_PER_MILLE,
+                 (unsigned)fieldmesh_rf_modem_profile_per_mille(
+                     fast_quality.primary_decode_attempts,
+                     fast_quality.primary_decode_successes,
+                     fast_quality.primary_crc_failures),
+                 (unsigned)fieldmesh_rf_modem_profile_per_mille(
+                     retry_quality.primary_decode_attempts,
+                     retry_quality.primary_decode_successes,
+                     retry_quality.primary_crc_failures),
+                 fieldmesh_rf_modem_profile_decision_name(
+                     fast_quality_decision),
+                 fieldmesh_rf_modem_profile_decision_name(
+                     retry_quality_decision),
+                 fieldmesh_rf_modem_profile_decision_name(
+                     insufficient_quality_decision));
         return 0;
     }
     if (strstr(request, "FIELDMESH_DEVICE_IDENTITY_SET")) {

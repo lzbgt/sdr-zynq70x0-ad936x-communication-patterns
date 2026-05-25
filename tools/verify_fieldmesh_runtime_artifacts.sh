@@ -447,6 +447,13 @@ PY
         retry_fallback_decision \
         fast_primary_high_rate_proven \
         retry_fallback_high_rate_proven \
+        adaptive_modem_profile_measured_quality_policy \
+        adaptive_modem_profile_measured_quality_native_c \
+        fast_primary_min_decode_attempts \
+        fast_primary_max_primary_per_mille \
+        fast_primary_quality_decision \
+        retry_fallback_quality_decision \
+        insufficient_quality_decision \
         FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER \
         state_daemon_iio_transport_execution_worker \
         state_daemon_libiio_execution_owner \

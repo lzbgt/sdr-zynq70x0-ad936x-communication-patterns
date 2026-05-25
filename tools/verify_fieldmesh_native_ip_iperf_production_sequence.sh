@@ -108,6 +108,15 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_retry_fallback_decision": "retry_fallback",
   "iio_bridge_fast_primary_high_rate_proven": true,
   "iio_bridge_retry_fallback_high_rate_proven": false,
+  "iio_bridge_adaptive_modem_profile_measured_quality_policy": true,
+  "iio_bridge_adaptive_modem_profile_measured_quality_native_c": true,
+  "iio_bridge_fast_primary_min_decode_attempts": 4,
+  "iio_bridge_fast_primary_max_primary_per_mille": 0,
+  "iio_bridge_fast_primary_quality_per_mille": 0,
+  "iio_bridge_retry_fallback_quality_per_mille": 500,
+  "iio_bridge_fast_primary_quality_decision": "fast_primary",
+  "iio_bridge_retry_fallback_quality_decision": "retry_fallback",
+  "iio_bridge_insufficient_quality_decision": "hold",
   "iio_bridge_state_daemon_iio_transport_enqueue_failures": 0,
   "iio_bridge_state_daemon_iio_transport_status": {
     "z103": {
@@ -419,6 +428,15 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_retry_fallback_decision": "retry_fallback",
   "iio_bridge_fast_primary_high_rate_proven": true,
   "iio_bridge_retry_fallback_high_rate_proven": false,
+  "iio_bridge_adaptive_modem_profile_measured_quality_policy": true,
+  "iio_bridge_adaptive_modem_profile_measured_quality_native_c": true,
+  "iio_bridge_fast_primary_min_decode_attempts": 4,
+  "iio_bridge_fast_primary_max_primary_per_mille": 0,
+  "iio_bridge_fast_primary_quality_per_mille": 0,
+  "iio_bridge_retry_fallback_quality_per_mille": 500,
+  "iio_bridge_fast_primary_quality_decision": "fast_primary",
+  "iio_bridge_retry_fallback_quality_decision": "retry_fallback",
+  "iio_bridge_insufficient_quality_decision": "hold",
   "iio_bridge_state_daemon_iio_transport_enqueue_failures": 0,
   "iio_bridge_state_daemon_iio_transport_status": {
     "z103": {

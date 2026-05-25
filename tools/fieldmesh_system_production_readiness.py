@@ -551,6 +551,32 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_host_iio_retry_fallback_decision"] = native_ip.get(
             "host_iio_retry_fallback_decision"
         )
+        detail["native_ip_board_iio_adaptive_modem_profile_measured_quality_policy"] = (
+            native_ip.get("board_iio_adaptive_modem_profile_measured_quality_policy")
+            is True
+        )
+        detail["native_ip_host_iio_adaptive_modem_profile_measured_quality_policy"] = (
+            native_ip.get("host_iio_adaptive_modem_profile_measured_quality_policy")
+            is True
+        )
+        detail["native_ip_board_iio_fast_primary_min_decode_attempts"] = (
+            native_ip.get("board_iio_fast_primary_min_decode_attempts")
+        )
+        detail["native_ip_host_iio_fast_primary_min_decode_attempts"] = (
+            native_ip.get("host_iio_fast_primary_min_decode_attempts")
+        )
+        detail["native_ip_board_iio_fast_primary_quality_decision"] = native_ip.get(
+            "board_iio_fast_primary_quality_decision"
+        )
+        detail["native_ip_host_iio_fast_primary_quality_decision"] = native_ip.get(
+            "host_iio_fast_primary_quality_decision"
+        )
+        detail["native_ip_board_iio_retry_fallback_quality_decision"] = native_ip.get(
+            "board_iio_retry_fallback_quality_decision"
+        )
+        detail["native_ip_host_iio_retry_fallback_quality_decision"] = native_ip.get(
+            "host_iio_retry_fallback_quality_decision"
+        )
         detail["native_ip_board_iio_bridge_in_burst_priority_preemption_enabled"] = (
             native_ip.get("board_iio_bridge_in_burst_priority_preemption_enabled") is True
         )

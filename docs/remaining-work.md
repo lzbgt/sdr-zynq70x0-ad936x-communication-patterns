@@ -315,7 +315,10 @@ rejects archives that relied on the lower-rate retry modem profile. The state
 daemon now exposes the adaptive modem profile decision as native C policy:
 `fast_primary` requires primary decode, no retry, and effective raw PHY rate
 at or above 20 kbit/s, while `retry_fallback` remains available for stronger
-decode but cannot satisfy high-rate evidence. Follow-up
+decode but cannot satisfy high-rate evidence. The same policy now consumes
+measured decode quality: at least four primary decode attempts, zero primary
+PER/CRC failures, and no retry attempts are required for fast-primary
+selection; under-sampled evidence returns `hold`. Follow-up
 HIL with async source ACK and batch-size 2 moved real-RF
 frames with zero bridge errors and delivered the requested 128-byte TCP payload
 to Z103. The latest duplicate-suppressed `tcp-control-flow` run moved 35

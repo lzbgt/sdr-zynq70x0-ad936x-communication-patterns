@@ -363,6 +363,10 @@ Minimum production gates for native TCP/IP:
   service policy: `fast_primary` is accepted only with primary decode success,
   no retry use, and effective raw rate at or above 20 kbit/s; `retry_fallback`
   is preserved as a stronger decode option but rejected as high-rate PHY proof.
+  The policy also has a measured-quality gate: at least four primary decode
+  attempts with zero primary PER/CRC failures and no retry attempts are required
+  before the native worker can select the fast profile, while under-sampled
+  evidence returns `hold`.
   Follow-up HIL with batch-size 2
   and async source ACKs moved 54 real-RF frames with zero bridge errors at 256 bytes; a
   true 128-byte test using `IPERF_BLOCK_SIZE=64` moved 54 more real-RF frames
@@ -486,7 +490,9 @@ Minimum production gates for native TCP/IP:
   a faster primary `samples_per_symbol=48`, `bit_repeat=3` profile with the
   stronger retry path still available after a decode miss. Production reports
   must now carry the native adaptive modem profile policy proof so a retry
-  decode cannot be counted as the fast PHY rate. That profile moved 40 real-RF
+  decode cannot be counted as the fast PHY rate, plus the measured-quality
+  decision proof that separates fast, retry, and hold cases. That profile moved
+  40 real-RF
   native-IP frames with zero bridge errors and completed a 4 Kbit/s UDP client
   exchange over real RF, with the Z103 one-shot UDP server exiting cleanly. The
   server still received only one 64-byte UDP datagram from that run, so this is

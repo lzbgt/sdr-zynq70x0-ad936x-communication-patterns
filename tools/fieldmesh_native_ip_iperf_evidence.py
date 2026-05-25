@@ -125,6 +125,25 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         errors.append(f"{label}: C modem profile policy did not prove fast primary high-rate")
     if report.get("iio_bridge_retry_fallback_high_rate_proven") is not False:
         errors.append(f"{label}: C modem profile policy treated retry fallback as high-rate")
+    if report.get("iio_bridge_adaptive_modem_profile_measured_quality_policy") is not True:
+        errors.append(f"{label}: adaptive modem profile measured-quality policy is missing")
+    if report.get("iio_bridge_adaptive_modem_profile_measured_quality_native_c") is not True:
+        errors.append(f"{label}: adaptive modem measured-quality policy must be native C")
+    if report.get("iio_bridge_fast_primary_min_decode_attempts") != 4:
+        errors.append(f"{label}: fast-primary quality gate must require four decode attempts")
+    if report.get("iio_bridge_fast_primary_max_primary_per_mille") != 0:
+        errors.append(f"{label}: fast-primary quality gate must require zero primary PER")
+    if report.get("iio_bridge_fast_primary_quality_per_mille") != 0:
+        errors.append(f"{label}: fast-primary quality fixture must prove zero PER")
+    retry_quality_per_mille = report.get("iio_bridge_retry_fallback_quality_per_mille")
+    if not isinstance(retry_quality_per_mille, int) or retry_quality_per_mille <= 0:
+        errors.append(f"{label}: retry fallback quality fixture must show measured PER")
+    if report.get("iio_bridge_fast_primary_quality_decision") != "fast_primary":
+        errors.append(f"{label}: measured quality policy did not select fast_primary")
+    if report.get("iio_bridge_retry_fallback_quality_decision") != "retry_fallback":
+        errors.append(f"{label}: measured quality policy did not select retry_fallback")
+    if report.get("iio_bridge_insufficient_quality_decision") != "hold":
+        errors.append(f"{label}: insufficient measured quality must hold current profile")
     if report.get("iio_bridge_native_rf_service_worker_required") is not True:
         errors.append(f"{label}: native RF service worker proof must be required")
     if report.get("iio_bridge_native_rf_service_worker_proven") is not True:
@@ -1659,6 +1678,30 @@ def main() -> int:
         ),
         "host_iio_retry_fallback_decision": host.get(
             "iio_bridge_retry_fallback_decision"
+        ),
+        "board_iio_adaptive_modem_profile_measured_quality_policy": board.get(
+            "iio_bridge_adaptive_modem_profile_measured_quality_policy"
+        ),
+        "host_iio_adaptive_modem_profile_measured_quality_policy": host.get(
+            "iio_bridge_adaptive_modem_profile_measured_quality_policy"
+        ),
+        "board_iio_fast_primary_min_decode_attempts": board.get(
+            "iio_bridge_fast_primary_min_decode_attempts"
+        ),
+        "host_iio_fast_primary_min_decode_attempts": host.get(
+            "iio_bridge_fast_primary_min_decode_attempts"
+        ),
+        "board_iio_fast_primary_quality_decision": board.get(
+            "iio_bridge_fast_primary_quality_decision"
+        ),
+        "host_iio_fast_primary_quality_decision": host.get(
+            "iio_bridge_fast_primary_quality_decision"
+        ),
+        "board_iio_retry_fallback_quality_decision": board.get(
+            "iio_bridge_retry_fallback_quality_decision"
+        ),
+        "host_iio_retry_fallback_quality_decision": host.get(
+            "iio_bridge_retry_fallback_quality_decision"
         ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": board.get(
             "iio_bridge_in_burst_priority_preemption_enabled"

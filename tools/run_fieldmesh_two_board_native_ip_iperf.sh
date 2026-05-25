@@ -596,6 +596,15 @@ expected = {
     "retry_fallback_decision": "retry_fallback",
     "fast_primary_high_rate_proven": 1,
     "retry_fallback_high_rate_proven": 0,
+    "adaptive_modem_profile_measured_quality_policy": 1,
+    "adaptive_modem_profile_measured_quality_native_c": 1,
+    "fast_primary_min_decode_attempts": 4,
+    "fast_primary_max_primary_per_mille": 0,
+    "fast_primary_quality_per_mille": 0,
+    "retry_fallback_quality_per_mille": 500,
+    "fast_primary_quality_decision": "fast_primary",
+    "retry_fallback_quality_decision": "retry_fallback",
+    "insufficient_quality_decision": "hold",
     "uses_json_on_air": 0,
     "starts_rf_tx": 0,
     "writes_hardware": 0,
@@ -669,6 +678,15 @@ if summary["ok"]:
         "retry_fallback_decision",
         "fast_primary_high_rate_proven",
         "retry_fallback_high_rate_proven",
+        "adaptive_modem_profile_measured_quality_policy",
+        "adaptive_modem_profile_measured_quality_native_c",
+        "fast_primary_min_decode_attempts",
+        "fast_primary_max_primary_per_mille",
+        "fast_primary_quality_per_mille",
+        "retry_fallback_quality_per_mille",
+        "fast_primary_quality_decision",
+        "retry_fallback_quality_decision",
+        "insufficient_quality_decision",
     ):
         summary[key] = first.get(key)
 print(json.dumps(summary, sort_keys=True))
@@ -2985,6 +3003,33 @@ report = {
     ),
     "iio_bridge_retry_fallback_decision": str(
         last_rf_service_policy.get("retry_fallback_decision") or ""
+    ),
+    "iio_bridge_adaptive_modem_profile_measured_quality_policy": bool(
+        last_rf_service_policy.get("adaptive_modem_profile_measured_quality_policy")
+    ),
+    "iio_bridge_adaptive_modem_profile_measured_quality_native_c": bool(
+        last_rf_service_policy.get("adaptive_modem_profile_measured_quality_native_c")
+    ),
+    "iio_bridge_fast_primary_min_decode_attempts": int(
+        last_rf_service_policy.get("fast_primary_min_decode_attempts") or 0
+    ),
+    "iio_bridge_fast_primary_max_primary_per_mille": int(
+        last_rf_service_policy.get("fast_primary_max_primary_per_mille") or 0
+    ),
+    "iio_bridge_fast_primary_quality_per_mille": int(
+        last_rf_service_policy.get("fast_primary_quality_per_mille") or 1000
+    ),
+    "iio_bridge_retry_fallback_quality_per_mille": int(
+        last_rf_service_policy.get("retry_fallback_quality_per_mille") or 0
+    ),
+    "iio_bridge_fast_primary_quality_decision": str(
+        last_rf_service_policy.get("fast_primary_quality_decision") or ""
+    ),
+    "iio_bridge_retry_fallback_quality_decision": str(
+        last_rf_service_policy.get("retry_fallback_quality_decision") or ""
+    ),
+    "iio_bridge_insufficient_quality_decision": str(
+        last_rf_service_policy.get("insufficient_quality_decision") or ""
     ),
     "iio_bridge_fast_primary_high_rate_proven": bool(
         last_rf_service_policy.get("fast_primary_high_rate_proven")
