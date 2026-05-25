@@ -54,8 +54,8 @@ rf_path_id="${RF_PATH_ID:-${FIXTURE_ID:-}}"
 rf_path_evidence="${RF_PATH_EVIDENCE:-${FIXTURE_EVIDENCE:-}}"
 operator_confirmation="${OPERATOR_CONFIRMATION:-}"
 center_frequency_hz="${CENTER_FREQUENCY_HZ:-2400000000}"
-rf_sample_rate_hz="${RF_SAMPLE_RATE_HZ:-3072000}"
-rf_bandwidth_hz="${RF_BANDWIDTH_HZ:-1000000}"
+rf_sample_rate_hz="${RF_SAMPLE_RATE_HZ:-7680000}"
+rf_bandwidth_hz="${RF_BANDWIDTH_HZ:-5000000}"
 rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-1}"
 rf_bit_repeat="${RF_BIT_REPEAT:-1}"
 rf_z203_to_z103_samples_per_symbol="${RF_Z203_TO_Z103_SAMPLES_PER_SYMBOL:-}"
@@ -589,7 +589,7 @@ expected = {
     "production_iio_policy": 1,
     "adaptive_modem_profile_policy": 1,
     "adaptive_modem_profile_policy_native_c": 1,
-    "fast_primary_min_raw_bitrate_bps": 2400000,
+    "fast_primary_min_raw_bitrate_bps": 6000000,
     "fast_primary_requires_primary_decode": 1,
     "fast_primary_rejects_modem_retry": 1,
     "fast_primary_decision": "fast_primary",

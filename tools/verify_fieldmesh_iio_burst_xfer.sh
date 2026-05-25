@@ -269,7 +269,7 @@ cmp "$work_dir/frame.bin" "$work_dir/decoded.bin"
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-encode \
   --frame-file "$work_dir/frame.bin" \
   --iq-file "$work_dir/fast_frame.iq" \
-  --sample-rate-hz 3072000 \
+  --sample-rate-hz 7680000 \
   --baseband-carrier-hz 100000 \
   --samples-per-symbol 1 \
   --bit-repeat 1 \
@@ -277,7 +277,7 @@ cmp "$work_dir/frame.bin" "$work_dir/decoded.bin"
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
   --iq-file "$work_dir/fast_frame.iq" \
   --decoded-file "$work_dir/fast_decoded.bin" \
-  --sample-rate-hz 3072000 \
+  --sample-rate-hz 7680000 \
   --baseband-carrier-hz 100000 \
   --samples-per-symbol 1 \
   --bit-repeat 1 \
@@ -433,8 +433,8 @@ if fast_encode.get("samples_per_symbol") != 1 or fast_encode.get("bit_repeat") !
     raise SystemExit(f"C fast BPSK profile drifted: {fast_encode}")
 if fast_decode.get("samples_per_symbol") != 1 or fast_decode.get("bit_repeat") != 1:
     raise SystemExit(f"C fast BPSK decoder profile drifted: {fast_decode}")
-raw_bitrate_bps = 3_072_000 / (fast_encode["samples_per_symbol"] * fast_encode["bit_repeat"])
-if raw_bitrate_bps < 3_072_000:
+raw_bitrate_bps = 7_680_000 / (fast_encode["samples_per_symbol"] * fast_encode["bit_repeat"])
+if raw_bitrate_bps < 7_680_000:
     raise SystemExit(f"C fast BPSK raw PHY target regressed: {raw_bitrate_bps}")
 PY
 

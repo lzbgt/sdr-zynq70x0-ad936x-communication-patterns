@@ -148,7 +148,7 @@ def query_modem_profile_decision_once():
     try:
         sock.sendto(
             b"FIELDMESH_RF_MODEM_PROFILE_DECISION v1 "
-            b"primary_raw_bitrate_bps=3072000 effective_raw_bitrate_bps=3072000 "
+            b"primary_raw_bitrate_bps=7680000 effective_raw_bitrate_bps=7680000 "
             b"primary_decode_attempts=4 primary_decode_successes=4 "
             b"primary_crc_failures=0 retry_decode_attempts=0 "
             b"retry_decode_successes=0 retry_crc_failures=0",
@@ -297,7 +297,7 @@ expected = {
     "production_iio_policy": 1,
     "adaptive_modem_profile_policy": 1,
     "adaptive_modem_profile_policy_native_c": 1,
-    "fast_primary_min_raw_bitrate_bps": 2400000,
+    "fast_primary_min_raw_bitrate_bps": 6000000,
     "fast_primary_requires_primary_decode": 1,
     "fast_primary_rejects_modem_retry": 1,
     "fast_primary_decision": "fast_primary",

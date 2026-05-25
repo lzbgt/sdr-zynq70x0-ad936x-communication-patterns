@@ -287,8 +287,8 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         errors.append(f"{label}: adaptive modem profile policy proof is missing")
     if report.get("iio_bridge_adaptive_modem_profile_policy_native_c") is not True:
         errors.append(f"{label}: adaptive modem profile policy must be native C")
-    if report.get("iio_bridge_fast_primary_min_raw_bitrate_bps") != 2_400_000:
-        errors.append(f"{label}: fast-primary PHY floor must be 2.4 Mbps")
+    if report.get("iio_bridge_fast_primary_min_raw_bitrate_bps") != 6_000_000:
+        errors.append(f"{label}: fast-primary PHY floor must be 6 Mbps")
     if report.get("iio_bridge_fast_primary_requires_primary_decode") is not True:
         errors.append(f"{label}: fast-primary profile must require primary decode")
     if report.get("iio_bridge_fast_primary_rejects_modem_retry") is not True:
@@ -903,8 +903,8 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     rf_bandwidth_hz = report.get("iio_bridge_rf_bandwidth_hz")
     if not isinstance(sample_rate_hz, int) or sample_rate_hz <= 0:
         errors.append(f"{label}: IIO bridge sample-rate evidence is missing")
-    if not isinstance(rf_bandwidth_hz, int) or rf_bandwidth_hz < 1_000_000:
-        errors.append(f"{label}: IIO bridge RF bandwidth must be at least 1 MHz")
+    if not isinstance(rf_bandwidth_hz, int) or rf_bandwidth_hz < 5_000_000:
+        errors.append(f"{label}: IIO bridge RF bandwidth must be at least 5 MHz")
     phy_raw = report.get("iio_bridge_phy_raw_bitrate_bps")
     if not isinstance(phy_raw, dict) or sorted(phy_raw) != ["z103_to_z203", "z203_to_z103"]:
         errors.append(f"{label}: IIO bridge PHY raw bitrate evidence must include both directions")
@@ -917,9 +917,9 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     min_phy_raw = report.get("iio_bridge_phy_min_raw_bitrate_bps")
     if not isinstance(min_phy_raw, (int, float)) or min_phy_raw <= 0:
         errors.append(f"{label}: IIO bridge minimum PHY raw bitrate evidence is missing")
-    elif float(min_phy_raw) < 2_400_000.0:
+    elif float(min_phy_raw) < 6_000_000.0:
         errors.append(
-            f"{label}: IIO bridge minimum PHY raw bitrate must be at least 2.4 Mbps"
+            f"{label}: IIO bridge minimum PHY raw bitrate must be at least 6 Mbps"
         )
     primary_phy_raw = report.get("iio_bridge_phy_primary_raw_bitrate_bps")
     if not isinstance(primary_phy_raw, dict) or sorted(primary_phy_raw) != [
@@ -936,9 +936,9 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     min_primary_phy_raw = report.get("iio_bridge_phy_min_primary_raw_bitrate_bps")
     if not isinstance(min_primary_phy_raw, (int, float)) or min_primary_phy_raw <= 0:
         errors.append(f"{label}: IIO bridge minimum primary PHY raw bitrate is missing")
-    elif float(min_primary_phy_raw) < 2_400_000.0:
+    elif float(min_primary_phy_raw) < 6_000_000.0:
         errors.append(
-            f"{label}: IIO bridge minimum primary PHY raw bitrate must be at least 2.4 Mbps"
+            f"{label}: IIO bridge minimum primary PHY raw bitrate must be at least 6 Mbps"
         )
     effective_phy_raw = report.get("iio_bridge_phy_effective_raw_bitrate_bps")
     if not isinstance(effective_phy_raw, dict) or sorted(effective_phy_raw) != [
@@ -955,9 +955,9 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     min_effective_phy_raw = report.get("iio_bridge_phy_min_effective_raw_bitrate_bps")
     if not isinstance(min_effective_phy_raw, (int, float)) or min_effective_phy_raw <= 0:
         errors.append(f"{label}: IIO bridge minimum effective PHY raw bitrate is missing")
-    elif float(min_effective_phy_raw) < 2_400_000.0:
+    elif float(min_effective_phy_raw) < 6_000_000.0:
         errors.append(
-            f"{label}: IIO bridge minimum effective PHY raw bitrate must be at least 2.4 Mbps"
+            f"{label}: IIO bridge minimum effective PHY raw bitrate must be at least 6 Mbps"
         )
     fast_primary_by_direction = report.get(
         "iio_bridge_phy_fast_primary_decode_proven_by_direction"
