@@ -359,7 +359,11 @@ Minimum production gates for native TCP/IP:
   proves at least 20 kbit/s minimum raw modem PHY rate and fast-primary decode
   success in both directions. If the modem retry fallback is selected, the
   archive reports the lower effective PHY rate instead of claiming the primary
-  rate. Follow-up HIL with batch-size 2
+  rate. The state daemon now proves that decision through the shared C RF
+  service policy: `fast_primary` is accepted only with primary decode success,
+  no retry use, and effective raw rate at or above 20 kbit/s; `retry_fallback`
+  is preserved as a stronger decode option but rejected as high-rate PHY proof.
+  Follow-up HIL with batch-size 2
   and async source ACKs moved 54 real-RF frames with zero bridge errors at 256 bytes; a
   true 128-byte test using `IPERF_BLOCK_SIZE=64` moved 54 more real-RF frames
   and completed all async ACKs, but still timed out with the client in
@@ -480,7 +484,9 @@ Minimum production gates for native TCP/IP:
   asymmetric software profile: Z203-to-Z103 uses `samples_per_symbol=32`,
   `bit_repeat=2`, while the weaker Z103-to-Z203 reverse/control direction uses
   a faster primary `samples_per_symbol=48`, `bit_repeat=3` profile with the
-  stronger retry path still available after a decode miss. That profile moved 40 real-RF
+  stronger retry path still available after a decode miss. Production reports
+  must now carry the native adaptive modem profile policy proof so a retry
+  decode cannot be counted as the fast PHY rate. That profile moved 40 real-RF
   native-IP frames with zero bridge errors and completed a 4 Kbit/s UDP client
   exchange over real RF, with the Z103 one-shot UDP server exiting cleanly. The
   server still received only one 64-byte UDP datagram from that run, so this is

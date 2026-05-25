@@ -438,6 +438,15 @@ PY
         native_rf_service_control_plane \
         service_policy_bound \
         production_iio_policy \
+        adaptive_modem_profile_policy \
+        adaptive_modem_profile_policy_native_c \
+        fast_primary_min_raw_bitrate_bps \
+        fast_primary_requires_primary_decode \
+        fast_primary_rejects_modem_retry \
+        fast_primary_decision \
+        retry_fallback_decision \
+        fast_primary_high_rate_proven \
+        retry_fallback_high_rate_proven \
         FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER \
         state_daemon_iio_transport_execution_worker \
         state_daemon_libiio_execution_owner \

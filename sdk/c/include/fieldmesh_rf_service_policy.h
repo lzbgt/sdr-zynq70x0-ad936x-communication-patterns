@@ -28,6 +28,7 @@ typedef enum fieldmesh_rf_service_lease_priority {
 #define FIELDMESH_RF_SERVICE_DEFAULT_IN_BURST_PRIORITY_PREEMPTION 1u
 #define FIELDMESH_RF_SERVICE_DEFAULT_STATE_DAEMON_IIO_TRANSPORT 1u
 #define FIELDMESH_RF_SERVICE_DEFAULT_STATE_DAEMON_IIO_EXECUTION_WORKER 1u
+#define FIELDMESH_RF_MODEM_PROFILE_FAST_MIN_RAW_BITRATE_BPS 20000u
 #define FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF \
     "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1"
 #define FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF \
@@ -49,6 +50,12 @@ typedef struct fieldmesh_rf_service_policy {
     uint8_t state_daemon_iio_execution_worker;
     fieldmesh_rf_service_lease_priority_t lease_priority;
 } fieldmesh_rf_service_policy_t;
+
+typedef enum fieldmesh_rf_modem_profile_decision {
+    FIELDMESH_RF_MODEM_PROFILE_DECISION_HOLD = 0,
+    FIELDMESH_RF_MODEM_PROFILE_DECISION_FAST_PRIMARY = 1,
+    FIELDMESH_RF_MODEM_PROFILE_DECISION_RETRY_FALLBACK = 2,
+} fieldmesh_rf_modem_profile_decision_t;
 
 static inline fieldmesh_rf_service_policy_t
 fieldmesh_rf_service_default_policy(void)
@@ -238,6 +245,53 @@ static inline int fieldmesh_rf_service_policy_accepts_production_iio(
            policy->lease_priority ==
                FIELDMESH_RF_SERVICE_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL &&
            fieldmesh_rf_service_policy_requires_reverse_service(policy);
+}
+
+static inline fieldmesh_rf_modem_profile_decision_t
+fieldmesh_rf_modem_profile_decide(uint32_t primary_raw_bitrate_bps,
+                                  uint32_t effective_raw_bitrate_bps,
+                                  uint8_t primary_decode_ok,
+                                  uint8_t modem_retry_used)
+{
+    if (modem_retry_used || !primary_decode_ok ||
+        effective_raw_bitrate_bps <
+            FIELDMESH_RF_MODEM_PROFILE_FAST_MIN_RAW_BITRATE_BPS) {
+        return FIELDMESH_RF_MODEM_PROFILE_DECISION_RETRY_FALLBACK;
+    }
+    if (primary_raw_bitrate_bps >=
+            FIELDMESH_RF_MODEM_PROFILE_FAST_MIN_RAW_BITRATE_BPS &&
+        effective_raw_bitrate_bps >=
+            FIELDMESH_RF_MODEM_PROFILE_FAST_MIN_RAW_BITRATE_BPS) {
+        return FIELDMESH_RF_MODEM_PROFILE_DECISION_FAST_PRIMARY;
+    }
+    return FIELDMESH_RF_MODEM_PROFILE_DECISION_HOLD;
+}
+
+static inline const char *fieldmesh_rf_modem_profile_decision_name(
+    fieldmesh_rf_modem_profile_decision_t decision)
+{
+    switch (decision) {
+    case FIELDMESH_RF_MODEM_PROFILE_DECISION_FAST_PRIMARY:
+        return "fast_primary";
+    case FIELDMESH_RF_MODEM_PROFILE_DECISION_RETRY_FALLBACK:
+        return "retry_fallback";
+    case FIELDMESH_RF_MODEM_PROFILE_DECISION_HOLD:
+    default:
+        return "hold";
+    }
+}
+
+static inline int fieldmesh_rf_modem_profile_high_rate_proven(
+    uint32_t primary_raw_bitrate_bps,
+    uint32_t effective_raw_bitrate_bps,
+    uint8_t primary_decode_ok,
+    uint8_t modem_retry_used)
+{
+    return fieldmesh_rf_modem_profile_decide(primary_raw_bitrate_bps,
+                                             effective_raw_bitrate_bps,
+                                             primary_decode_ok,
+                                             modem_retry_used) ==
+           FIELDMESH_RF_MODEM_PROFILE_DECISION_FAST_PRIMARY;
 }
 
 #ifdef __cplusplus

@@ -587,6 +587,15 @@ expected = {
     "lease_priority": "tcp_control_flow_udp_after_control",
     "lease_priority_cli": "tcp-control-flow-udp-after-control",
     "production_iio_policy": 1,
+    "adaptive_modem_profile_policy": 1,
+    "adaptive_modem_profile_policy_native_c": 1,
+    "fast_primary_min_raw_bitrate_bps": 20000,
+    "fast_primary_requires_primary_decode": 1,
+    "fast_primary_rejects_modem_retry": 1,
+    "fast_primary_decision": "fast_primary",
+    "retry_fallback_decision": "retry_fallback",
+    "fast_primary_high_rate_proven": 1,
+    "retry_fallback_high_rate_proven": 0,
     "uses_json_on_air": 0,
     "starts_rf_tx": 0,
     "writes_hardware": 0,
@@ -651,6 +660,15 @@ if summary["ok"]:
         "in_burst_priority_preemption",
         "lease_priority",
         "lease_priority_cli",
+        "adaptive_modem_profile_policy",
+        "adaptive_modem_profile_policy_native_c",
+        "fast_primary_min_raw_bitrate_bps",
+        "fast_primary_requires_primary_decode",
+        "fast_primary_rejects_modem_retry",
+        "fast_primary_decision",
+        "retry_fallback_decision",
+        "fast_primary_high_rate_proven",
+        "retry_fallback_high_rate_proven",
     ):
         summary[key] = first.get(key)
 print(json.dumps(summary, sort_keys=True))
@@ -2946,6 +2964,33 @@ report = {
     ),
     "iio_bridge_rf_service_policy_in_burst_priority_preemption": bool(
         last_rf_service_policy.get("in_burst_priority_preemption")
+    ),
+    "iio_bridge_adaptive_modem_profile_policy_proven": bool(
+        last_rf_service_policy.get("adaptive_modem_profile_policy")
+    ),
+    "iio_bridge_adaptive_modem_profile_policy_native_c": bool(
+        last_rf_service_policy.get("adaptive_modem_profile_policy_native_c")
+    ),
+    "iio_bridge_fast_primary_min_raw_bitrate_bps": int(
+        last_rf_service_policy.get("fast_primary_min_raw_bitrate_bps") or 0
+    ),
+    "iio_bridge_fast_primary_requires_primary_decode": bool(
+        last_rf_service_policy.get("fast_primary_requires_primary_decode")
+    ),
+    "iio_bridge_fast_primary_rejects_modem_retry": bool(
+        last_rf_service_policy.get("fast_primary_rejects_modem_retry")
+    ),
+    "iio_bridge_fast_primary_decision": str(
+        last_rf_service_policy.get("fast_primary_decision") or ""
+    ),
+    "iio_bridge_retry_fallback_decision": str(
+        last_rf_service_policy.get("retry_fallback_decision") or ""
+    ),
+    "iio_bridge_fast_primary_high_rate_proven": bool(
+        last_rf_service_policy.get("fast_primary_high_rate_proven")
+    ),
+    "iio_bridge_retry_fallback_high_rate_proven": bool(
+        last_rf_service_policy.get("retry_fallback_high_rate_proven")
     ),
     "iio_bridge_persistent_burst_helper": bool(
         last_iio_bridge.get("persistent_burst_helper")

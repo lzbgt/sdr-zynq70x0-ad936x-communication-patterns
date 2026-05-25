@@ -311,7 +311,11 @@ profile lowered many batch times to about 0.8-1.3 seconds but initially
 introduced an intermittent reverse-path CRC miss under load and still did not
 complete `iperf3`; it is now the primary reverse/control profile only behind a
 minimum raw PHY evidence gate that requires fast-primary decode success and
-rejects archives that relied on the lower-rate retry modem profile. Follow-up
+rejects archives that relied on the lower-rate retry modem profile. The state
+daemon now exposes the adaptive modem profile decision as native C policy:
+`fast_primary` requires primary decode, no retry, and effective raw PHY rate
+at or above 20 kbit/s, while `retry_fallback` remains available for stronger
+decode but cannot satisfy high-rate evidence. Follow-up
 HIL with async source ACK and batch-size 2 moved real-RF
 frames with zero bridge errors and delivered the requested 128-byte TCP payload
 to Z103. The latest duplicate-suppressed `tcp-control-flow` run moved 35

@@ -107,6 +107,24 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         errors.append(f"{label}: IIO RF service policy must use hybrid lease priority")
     if report.get("iio_bridge_rf_service_policy_in_burst_priority_preemption") is not True:
         errors.append(f"{label}: IIO RF service policy must enable in-burst priority preemption")
+    if report.get("iio_bridge_adaptive_modem_profile_policy_proven") is not True:
+        errors.append(f"{label}: adaptive modem profile policy proof is missing")
+    if report.get("iio_bridge_adaptive_modem_profile_policy_native_c") is not True:
+        errors.append(f"{label}: adaptive modem profile policy must be native C")
+    if report.get("iio_bridge_fast_primary_min_raw_bitrate_bps") != 20_000:
+        errors.append(f"{label}: fast-primary PHY floor must be 20 kbps")
+    if report.get("iio_bridge_fast_primary_requires_primary_decode") is not True:
+        errors.append(f"{label}: fast-primary profile must require primary decode")
+    if report.get("iio_bridge_fast_primary_rejects_modem_retry") is not True:
+        errors.append(f"{label}: fast-primary profile must reject modem retry fallback")
+    if report.get("iio_bridge_fast_primary_decision") != "fast_primary":
+        errors.append(f"{label}: C modem profile policy did not select fast_primary")
+    if report.get("iio_bridge_retry_fallback_decision") != "retry_fallback":
+        errors.append(f"{label}: C modem profile policy did not classify retry fallback")
+    if report.get("iio_bridge_fast_primary_high_rate_proven") is not True:
+        errors.append(f"{label}: C modem profile policy did not prove fast primary high-rate")
+    if report.get("iio_bridge_retry_fallback_high_rate_proven") is not False:
+        errors.append(f"{label}: C modem profile policy treated retry fallback as high-rate")
     if report.get("iio_bridge_native_rf_service_worker_required") is not True:
         errors.append(f"{label}: native RF service worker proof must be required")
     if report.get("iio_bridge_native_rf_service_worker_proven") is not True:
@@ -1617,6 +1635,30 @@ def main() -> int:
         ),
         "host_iio_bridge_phy_modem_retry_used": host.get(
             "iio_bridge_phy_modem_retry_used"
+        ),
+        "board_iio_adaptive_modem_profile_policy_proven": board.get(
+            "iio_bridge_adaptive_modem_profile_policy_proven"
+        ),
+        "host_iio_adaptive_modem_profile_policy_proven": host.get(
+            "iio_bridge_adaptive_modem_profile_policy_proven"
+        ),
+        "board_iio_fast_primary_min_raw_bitrate_bps": board.get(
+            "iio_bridge_fast_primary_min_raw_bitrate_bps"
+        ),
+        "host_iio_fast_primary_min_raw_bitrate_bps": host.get(
+            "iio_bridge_fast_primary_min_raw_bitrate_bps"
+        ),
+        "board_iio_fast_primary_decision": board.get(
+            "iio_bridge_fast_primary_decision"
+        ),
+        "host_iio_fast_primary_decision": host.get(
+            "iio_bridge_fast_primary_decision"
+        ),
+        "board_iio_retry_fallback_decision": board.get(
+            "iio_bridge_retry_fallback_decision"
+        ),
+        "host_iio_retry_fallback_decision": host.get(
+            "iio_bridge_retry_fallback_decision"
         ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": board.get(
             "iio_bridge_in_burst_priority_preemption_enabled"

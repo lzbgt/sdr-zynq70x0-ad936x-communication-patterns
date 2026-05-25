@@ -99,6 +99,15 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_phy_fast_primary_decode_proven_by_direction": {"z203_to_z103": true, "z103_to_z203": true},
   "iio_bridge_phy_modem_retry_used": false,
   "iio_bridge_phy_modem_retry_used_by_direction": {"z203_to_z103": false, "z103_to_z203": false},
+  "iio_bridge_adaptive_modem_profile_policy_proven": true,
+  "iio_bridge_adaptive_modem_profile_policy_native_c": true,
+  "iio_bridge_fast_primary_min_raw_bitrate_bps": 20000,
+  "iio_bridge_fast_primary_requires_primary_decode": true,
+  "iio_bridge_fast_primary_rejects_modem_retry": true,
+  "iio_bridge_fast_primary_decision": "fast_primary",
+  "iio_bridge_retry_fallback_decision": "retry_fallback",
+  "iio_bridge_fast_primary_high_rate_proven": true,
+  "iio_bridge_retry_fallback_high_rate_proven": false,
   "iio_bridge_state_daemon_iio_transport_enqueue_failures": 0,
   "iio_bridge_state_daemon_iio_transport_status": {
     "z103": {
@@ -401,6 +410,15 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_phy_fast_primary_decode_proven_by_direction": {"z203_to_z103": true, "z103_to_z203": true},
   "iio_bridge_phy_modem_retry_used": false,
   "iio_bridge_phy_modem_retry_used_by_direction": {"z203_to_z103": false, "z103_to_z203": false},
+  "iio_bridge_adaptive_modem_profile_policy_proven": true,
+  "iio_bridge_adaptive_modem_profile_policy_native_c": true,
+  "iio_bridge_fast_primary_min_raw_bitrate_bps": 20000,
+  "iio_bridge_fast_primary_requires_primary_decode": true,
+  "iio_bridge_fast_primary_rejects_modem_retry": true,
+  "iio_bridge_fast_primary_decision": "fast_primary",
+  "iio_bridge_retry_fallback_decision": "retry_fallback",
+  "iio_bridge_fast_primary_high_rate_proven": true,
+  "iio_bridge_retry_fallback_high_rate_proven": false,
   "iio_bridge_state_daemon_iio_transport_enqueue_failures": 0,
   "iio_bridge_state_daemon_iio_transport_status": {
     "z103": {

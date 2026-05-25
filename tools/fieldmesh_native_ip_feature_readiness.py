@@ -735,6 +735,30 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "host_iio_bridge_phy_modem_retry_used": report.get(
             "host_iio_bridge_phy_modem_retry_used"
         ),
+        "board_iio_adaptive_modem_profile_policy_proven": report.get(
+            "board_iio_adaptive_modem_profile_policy_proven"
+        ),
+        "host_iio_adaptive_modem_profile_policy_proven": report.get(
+            "host_iio_adaptive_modem_profile_policy_proven"
+        ),
+        "board_iio_fast_primary_min_raw_bitrate_bps": report.get(
+            "board_iio_fast_primary_min_raw_bitrate_bps"
+        ),
+        "host_iio_fast_primary_min_raw_bitrate_bps": report.get(
+            "host_iio_fast_primary_min_raw_bitrate_bps"
+        ),
+        "board_iio_fast_primary_decision": report.get(
+            "board_iio_fast_primary_decision"
+        ),
+        "host_iio_fast_primary_decision": report.get(
+            "host_iio_fast_primary_decision"
+        ),
+        "board_iio_retry_fallback_decision": report.get(
+            "board_iio_retry_fallback_decision"
+        ),
+        "host_iio_retry_fallback_decision": report.get(
+            "host_iio_retry_fallback_decision"
+        ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": report.get(
             "board_iio_bridge_in_burst_priority_preemption_enabled"
         ),

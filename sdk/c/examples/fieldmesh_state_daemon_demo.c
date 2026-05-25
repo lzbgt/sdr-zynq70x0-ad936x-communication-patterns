@@ -3326,6 +3326,10 @@ static int build_response(fieldmesh_context_t *context,
             fieldmesh_rf_service_default_policy();
         int production_iio_policy =
             fieldmesh_rf_service_policy_accepts_production_iio(&policy);
+        fieldmesh_rf_modem_profile_decision_t fast_profile_decision =
+            fieldmesh_rf_modem_profile_decide(21333u, 21333u, 1u, 0u);
+        fieldmesh_rf_modem_profile_decision_t retry_profile_decision =
+            fieldmesh_rf_modem_profile_decide(21333u, 10666u, 0u, 1u);
 
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_rf_service_policy_self_test\","
@@ -3350,6 +3354,15 @@ static int build_response(fieldmesh_context_t *context,
                  "\"lease_priority\":\"%s\","
                  "\"lease_priority_cli\":\"%s\","
                  "\"production_iio_policy\":%u,"
+                 "\"adaptive_modem_profile_policy\":1,"
+                 "\"adaptive_modem_profile_policy_native_c\":1,"
+                 "\"fast_primary_min_raw_bitrate_bps\":%u,"
+                 "\"fast_primary_requires_primary_decode\":1,"
+                 "\"fast_primary_rejects_modem_retry\":1,"
+                 "\"fast_primary_decision\":\"%s\","
+                 "\"retry_fallback_decision\":\"%s\","
+                 "\"fast_primary_high_rate_proven\":%u,"
+                 "\"retry_fallback_high_rate_proven\":%u,"
                  "\"uses_json_on_air\":0,"
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0,"
@@ -3375,7 +3388,16 @@ static int build_response(fieldmesh_context_t *context,
                  fieldmesh_rf_service_lease_priority_name(policy.lease_priority),
                  fieldmesh_rf_service_lease_priority_cli_name(
                      policy.lease_priority),
-                 production_iio_policy ? 1u : 0u);
+                 production_iio_policy ? 1u : 0u,
+                 (unsigned)FIELDMESH_RF_MODEM_PROFILE_FAST_MIN_RAW_BITRATE_BPS,
+                 fieldmesh_rf_modem_profile_decision_name(
+                     fast_profile_decision),
+                 fieldmesh_rf_modem_profile_decision_name(
+                     retry_profile_decision),
+                 fieldmesh_rf_modem_profile_high_rate_proven(
+                     21333u, 21333u, 1u, 0u) ? 1u : 0u,
+                 fieldmesh_rf_modem_profile_high_rate_proven(
+                     21333u, 10666u, 0u, 1u) ? 1u : 0u);
         return 0;
     }
     if (strstr(request, "FIELDMESH_DEVICE_IDENTITY_SET")) {
