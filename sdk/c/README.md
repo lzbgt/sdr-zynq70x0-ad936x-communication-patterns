@@ -114,11 +114,13 @@ in `src/fieldmesh_sdk.c`:
   budget, pressure, byte/packet/drop/fault counters, MAC pump counters,
   BRAM CRC/bounds counters, and hardware service-latency budget/overrun state
   are surfaced through fixed binary
-  `fieldmesh_ctrl` registers at `0x140..0x1e8`; reset leaves the endpoint
+  `fieldmesh_ctrl` registers at `0x140..0x204`; reset leaves the endpoint
   disabled until software configures metadata and arms those bits. The
-  RF-engine sidecar range also exposes QPSK RX acquisition/framing diagnostics:
+  RF-engine sidecar range also exposes QPSK RX demod quality and
+  acquisition/framing diagnostics:
   byte-sync lock, selected byte phase, selected QPSK quadrant rotation,
-  sync input/output bytes, lock/slip/rotation/search-drop counts, RX
+  sync input/output bytes, demod symbol quality/margin and stream backpressure
+  counters, lock/slip/rotation/search-drop counts, RX
   packet/byte/drop counts, CRC rejects, resyncs, and framer fault status.
   `include/fieldmesh_firmware_dma_ctrl.h` is the canonical C contract for
   that register block: offsets, control/status-bit predicates, QPSK RX

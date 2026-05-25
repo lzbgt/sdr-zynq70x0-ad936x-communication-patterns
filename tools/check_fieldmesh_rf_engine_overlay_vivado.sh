@@ -113,7 +113,7 @@ if {[lsearch -exact [list_property \$ctrl_s_axi] CONFIG.ADDR_WIDTH] >= 0} {
   set ctrl_addr_width [get_property CONFIG.ADDR_WIDTH \$ctrl_s_axi]
 }
 if {"\$ctrl_addr_width" ne "" && \$ctrl_addr_width < 12} {
-  error "fieldmesh_ctrl/s_axi address width must cover RF, firmware-DMA, and QPSK RX diagnostic register pages through 0x1e8"
+  error "fieldmesh_ctrl/s_axi address width must cover RF, firmware-DMA, and QPSK RX diagnostic register pages through 0x204"
 }
 
 foreach pin {
@@ -158,6 +158,20 @@ foreach pin {
   fieldmesh_qpsk_demodulator/m_axis_tready
   fieldmesh_qpsk_demodulator/m_axis_tdata
   fieldmesh_qpsk_demodulator/m_axis_tlast
+  fieldmesh_qpsk_demodulator/symbol_count
+  fieldmesh_qpsk_demodulator/low_margin_symbol_count
+  fieldmesh_qpsk_demodulator/tie_symbol_count
+  fieldmesh_qpsk_demodulator/min_symbol_margin
+  fieldmesh_qpsk_demodulator/margin_accum
+  fieldmesh_qpsk_demodulator/output_stall_cycle_count
+  fieldmesh_qpsk_demodulator/input_backpressure_cycle_count
+  fieldmesh_ctrl/qpsk_demod_symbol_count
+  fieldmesh_ctrl/qpsk_demod_low_margin_symbol_count
+  fieldmesh_ctrl/qpsk_demod_tie_symbol_count
+  fieldmesh_ctrl/qpsk_demod_min_symbol_margin
+  fieldmesh_ctrl/qpsk_demod_margin_accum
+  fieldmesh_ctrl/qpsk_demod_output_stall_cycle_count
+  fieldmesh_ctrl/qpsk_demod_input_backpressure_cycle_count
   fieldmesh_qpsk_byte_sync/clk
   fieldmesh_qpsk_byte_sync/rst
   fieldmesh_qpsk_byte_sync/enable
@@ -512,6 +526,13 @@ assert_same_net fieldmesh_iq_adc_source/m_axis_tvalid fieldmesh_qpsk_demodulator
 assert_same_net fieldmesh_iq_adc_source/m_axis_tready fieldmesh_qpsk_demodulator/s_axis_tready
 assert_same_net fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_demodulator/s_axis_tdata
 assert_same_net fieldmesh_iq_adc_source/m_axis_tlast fieldmesh_qpsk_demodulator/s_axis_tlast
+assert_same_net fieldmesh_qpsk_demodulator/symbol_count fieldmesh_ctrl/qpsk_demod_symbol_count
+assert_same_net fieldmesh_qpsk_demodulator/low_margin_symbol_count fieldmesh_ctrl/qpsk_demod_low_margin_symbol_count
+assert_same_net fieldmesh_qpsk_demodulator/tie_symbol_count fieldmesh_ctrl/qpsk_demod_tie_symbol_count
+assert_same_net fieldmesh_qpsk_demodulator/min_symbol_margin fieldmesh_ctrl/qpsk_demod_min_symbol_margin
+assert_same_net fieldmesh_qpsk_demodulator/margin_accum fieldmesh_ctrl/qpsk_demod_margin_accum
+assert_same_net fieldmesh_qpsk_demodulator/output_stall_cycle_count fieldmesh_ctrl/qpsk_demod_output_stall_cycle_count
+assert_same_net fieldmesh_qpsk_demodulator/input_backpressure_cycle_count fieldmesh_ctrl/qpsk_demod_input_backpressure_cycle_count
 assert_same_net fieldmesh_qpsk_demodulator/m_axis_tvalid fieldmesh_qpsk_byte_sync/s_axis_tvalid
 assert_same_net fieldmesh_qpsk_demodulator/m_axis_tready fieldmesh_qpsk_byte_sync/s_axis_tready
 assert_same_net fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_qpsk_byte_sync/s_axis_tdata

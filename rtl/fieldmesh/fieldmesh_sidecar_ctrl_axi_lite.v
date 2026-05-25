@@ -125,6 +125,13 @@ module fieldmesh_sidecar_ctrl_axi_lite #(
     input  wire [31:0]  qpsk_rx_crc_error_count,
     input  wire [31:0]  qpsk_rx_resync_count,
     input  wire         qpsk_rx_fault,
+    input  wire [31:0]  qpsk_demod_symbol_count,
+    input  wire [31:0]  qpsk_demod_low_margin_symbol_count,
+    input  wire [31:0]  qpsk_demod_tie_symbol_count,
+    input  wire [31:0]  qpsk_demod_min_symbol_margin,
+    input  wire [31:0]  qpsk_demod_margin_accum,
+    input  wire [31:0]  qpsk_demod_output_stall_cycle_count,
+    input  wire [31:0]  qpsk_demod_input_backpressure_cycle_count,
 
     output wire         irq,
     output wire [2:0]   irq_status
@@ -197,6 +204,13 @@ generate if (SYNTH_LIGHT) begin : gen_light
     localparam [11:0] REG_QPSK_RX_CRC_ERRORS           = 12'h1e0;
     localparam [11:0] REG_QPSK_RX_RESYNCS              = 12'h1e4;
     localparam [11:0] REG_QPSK_RX_FAULT_STATUS         = 12'h1e8;
+    localparam [11:0] REG_QPSK_DEMOD_SYMBOLS           = 12'h1ec;
+    localparam [11:0] REG_QPSK_DEMOD_LOW_MARGIN_SYMBOLS = 12'h1f0;
+    localparam [11:0] REG_QPSK_DEMOD_TIE_SYMBOLS       = 12'h1f4;
+    localparam [11:0] REG_QPSK_DEMOD_MIN_SYMBOL_MARGIN = 12'h1f8;
+    localparam [11:0] REG_QPSK_DEMOD_MARGIN_ACCUM      = 12'h1fc;
+    localparam [11:0] REG_QPSK_DEMOD_OUTPUT_STALL_CYCLES = 12'h200;
+    localparam [11:0] REG_QPSK_DEMOD_INPUT_BACKPRESSURE_CYCLES = 12'h204;
 
     wire rst = !s_axi_aresetn;
 
@@ -269,6 +283,20 @@ generate if (SYNTH_LIGHT) begin : gen_light
     (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_rx_resync_count_sync;
     (* ASYNC_REG = "TRUE" *) reg        qpsk_rx_fault_meta;
     (* ASYNC_REG = "TRUE" *) reg        qpsk_rx_fault_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_symbol_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_symbol_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_low_margin_symbol_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_low_margin_symbol_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_tie_symbol_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_tie_symbol_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_min_symbol_margin_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_min_symbol_margin_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_margin_accum_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_margin_accum_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_output_stall_cycle_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_output_stall_cycle_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_input_backpressure_cycle_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_input_backpressure_cycle_count_sync;
     reg [1:0]  bresp_r;
     reg        bvalid_r;
     reg [31:0] rdata_r;
@@ -347,6 +375,20 @@ generate if (SYNTH_LIGHT) begin : gen_light
             qpsk_rx_resync_count_sync <= 32'd0;
             qpsk_rx_fault_meta <= 1'b0;
             qpsk_rx_fault_sync <= 1'b0;
+            qpsk_demod_symbol_count_meta <= 32'd0;
+            qpsk_demod_symbol_count_sync <= 32'd0;
+            qpsk_demod_low_margin_symbol_count_meta <= 32'd0;
+            qpsk_demod_low_margin_symbol_count_sync <= 32'd0;
+            qpsk_demod_tie_symbol_count_meta <= 32'd0;
+            qpsk_demod_tie_symbol_count_sync <= 32'd0;
+            qpsk_demod_min_symbol_margin_meta <= 32'd0;
+            qpsk_demod_min_symbol_margin_sync <= 32'd0;
+            qpsk_demod_margin_accum_meta <= 32'd0;
+            qpsk_demod_margin_accum_sync <= 32'd0;
+            qpsk_demod_output_stall_cycle_count_meta <= 32'd0;
+            qpsk_demod_output_stall_cycle_count_sync <= 32'd0;
+            qpsk_demod_input_backpressure_cycle_count_meta <= 32'd0;
+            qpsk_demod_input_backpressure_cycle_count_sync <= 32'd0;
         end else begin
             rf_dac_sample_count_meta <= rf_dac_sample_count;
             rf_dac_sample_count_sync <= rf_dac_sample_count_meta;
@@ -386,6 +428,20 @@ generate if (SYNTH_LIGHT) begin : gen_light
             qpsk_rx_resync_count_sync <= qpsk_rx_resync_count_meta;
             qpsk_rx_fault_meta <= qpsk_rx_fault;
             qpsk_rx_fault_sync <= qpsk_rx_fault_meta;
+            qpsk_demod_symbol_count_meta <= qpsk_demod_symbol_count;
+            qpsk_demod_symbol_count_sync <= qpsk_demod_symbol_count_meta;
+            qpsk_demod_low_margin_symbol_count_meta <= qpsk_demod_low_margin_symbol_count;
+            qpsk_demod_low_margin_symbol_count_sync <= qpsk_demod_low_margin_symbol_count_meta;
+            qpsk_demod_tie_symbol_count_meta <= qpsk_demod_tie_symbol_count;
+            qpsk_demod_tie_symbol_count_sync <= qpsk_demod_tie_symbol_count_meta;
+            qpsk_demod_min_symbol_margin_meta <= qpsk_demod_min_symbol_margin;
+            qpsk_demod_min_symbol_margin_sync <= qpsk_demod_min_symbol_margin_meta;
+            qpsk_demod_margin_accum_meta <= qpsk_demod_margin_accum;
+            qpsk_demod_margin_accum_sync <= qpsk_demod_margin_accum_meta;
+            qpsk_demod_output_stall_cycle_count_meta <= qpsk_demod_output_stall_cycle_count;
+            qpsk_demod_output_stall_cycle_count_sync <= qpsk_demod_output_stall_cycle_count_meta;
+            qpsk_demod_input_backpressure_cycle_count_meta <= qpsk_demod_input_backpressure_cycle_count;
+            qpsk_demod_input_backpressure_cycle_count_sync <= qpsk_demod_input_backpressure_cycle_count_meta;
         end
     end
 
@@ -567,6 +623,13 @@ generate if (SYNTH_LIGHT) begin : gen_light
                     REG_QPSK_RX_CRC_ERRORS: rdata_r <= qpsk_rx_crc_error_count_sync;
                     REG_QPSK_RX_RESYNCS: rdata_r <= qpsk_rx_resync_count_sync;
                     REG_QPSK_RX_FAULT_STATUS: rdata_r <= {31'd0, qpsk_rx_fault_sync};
+                    REG_QPSK_DEMOD_SYMBOLS: rdata_r <= qpsk_demod_symbol_count_sync;
+                    REG_QPSK_DEMOD_LOW_MARGIN_SYMBOLS: rdata_r <= qpsk_demod_low_margin_symbol_count_sync;
+                    REG_QPSK_DEMOD_TIE_SYMBOLS: rdata_r <= qpsk_demod_tie_symbol_count_sync;
+                    REG_QPSK_DEMOD_MIN_SYMBOL_MARGIN: rdata_r <= qpsk_demod_min_symbol_margin_sync;
+                    REG_QPSK_DEMOD_MARGIN_ACCUM: rdata_r <= qpsk_demod_margin_accum_sync;
+                    REG_QPSK_DEMOD_OUTPUT_STALL_CYCLES: rdata_r <= qpsk_demod_output_stall_cycle_count_sync;
+                    REG_QPSK_DEMOD_INPUT_BACKPRESSURE_CYCLES: rdata_r <= qpsk_demod_input_backpressure_cycle_count_sync;
                     default: rdata_r <= 32'd0;
                 endcase
                 rresp_r <= 2'b00;

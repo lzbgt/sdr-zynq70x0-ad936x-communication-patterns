@@ -285,6 +285,13 @@ static void print_qpsk_rx_diag(uint32_t base, const fieldmesh_qpsk_rx_diag_t *di
            "\"rx_crc_errors\":%" PRIu32 ","
            "\"rx_resyncs\":%" PRIu32 ","
            "\"fault_status\":\"0x%08" PRIx32 "\","
+           "\"demod_symbols\":%" PRIu32 ","
+           "\"demod_low_margin_symbols\":%" PRIu32 ","
+           "\"demod_tie_symbols\":%" PRIu32 ","
+           "\"demod_min_symbol_margin\":%" PRIu32 ","
+           "\"demod_margin_accum\":%" PRIu32 ","
+           "\"demod_output_stall_cycles\":%" PRIu32 ","
+           "\"demod_input_backpressure_cycles\":%" PRIu32 ","
            "\"rx_fault\":%s,"
            "\"fault_free\":%s,"
            "\"drop_counters_clear\":%s,"
@@ -306,6 +313,13 @@ static void print_qpsk_rx_diag(uint32_t base, const fieldmesh_qpsk_rx_diag_t *di
            diag->rx_crc_errors,
            diag->rx_resyncs,
            diag->fault_status,
+           diag->demod_symbols,
+           diag->demod_low_margin_symbols,
+           diag->demod_tie_symbols,
+           diag->demod_min_symbol_margin,
+           diag->demod_margin_accum,
+           diag->demod_output_stall_cycles,
+           diag->demod_input_backpressure_cycles,
            diag->rx_fault ? "true" : "false",
            fieldmesh_qpsk_rx_diag_fault_free(diag) ? "true" : "false",
            fieldmesh_qpsk_rx_diag_drop_counters_clear(diag) ? "true" : "false",

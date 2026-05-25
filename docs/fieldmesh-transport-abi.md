@@ -490,6 +490,13 @@ adds these RF TX guard registers above the packet-memory scheduler range:
 | `0x1e0` | `FM_QPSK_RX_CRC_ERRORS` | recovered packets rejected by PL CRC-16 validation |
 | `0x1e4` | `FM_QPSK_RX_RESYNCS` | RX header/framer resynchronization events |
 | `0x1e8` | `FM_QPSK_RX_FAULT_STATUS` | bit 0 PL RX framer fault |
+| `0x1ec` | `FM_QPSK_DEMOD_SYMBOLS` | hard-decision QPSK symbols consumed by the PL demodulator |
+| `0x1f0` | `FM_QPSK_DEMOD_LOW_MARGIN_SYMBOLS` | QPSK symbols whose I/Q decision margin is below the configured hardware threshold |
+| `0x1f4` | `FM_QPSK_DEMOD_TIE_SYMBOLS` | QPSK symbols with zero I or Q decision margin |
+| `0x1f8` | `FM_QPSK_DEMOD_MIN_SYMBOL_MARGIN` | minimum observed hard-decision margin since reset |
+| `0x1fc` | `FM_QPSK_DEMOD_MARGIN_ACCUM` | accumulated hard-decision margins for average-quality estimation |
+| `0x200` | `FM_QPSK_DEMOD_OUTPUT_STALL_CYCLES` | PL demodulator output-valid cycles stalled by downstream backpressure |
+| `0x204` | `FM_QPSK_DEMOD_INPUT_BACKPRESSURE_CYCLES` | upstream-valid cycles stalled by the PL demodulator input-ready path |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.

@@ -1622,15 +1622,16 @@ below were later superseded by the current PHY-management two-board gates above:
   `fieldmesh_firmware_axis_dma_endpoint` with `AUTO_EGRESS=1`, maps the DMA
   windows at `0x43C10000`/`0x43C20000`, uses HP3 for TX/MM2S and HP0 for
   RX/S2MM, and wires the endpoint control/status pins through the existing
-  `fieldmesh_ctrl` register page at `0x140..0x1e8`. The endpoint resets
+  `fieldmesh_ctrl` register page at `0x140..0x204`. The endpoint resets
   disabled and must be armed explicitly by software. The register page now also
   exposes parser/ingress/egress byte counts, MAC pump starts/completions, split
   BRAM CRC/bounds errors, FPGA MAC-service latency cycles, a hardware
   service-latency budget/overrun counter, and parser/ingress/egress fault bits for live
   service-rate triage without packet payload parsing. RF-engine builds also
   expose QPSK RX byte-sync lock, selected byte phase, selected QPSK quadrant
-  rotation, acquisition/search counters, RX packet/drop/CRC counters, resyncs,
-  and framer fault status for live acquisition bottleneck triage. The C SDK header
+  rotation, acquisition/search counters, demod symbol quality/margin and stream
+  backpressure counters, RX packet/drop/CRC counters, resyncs, and framer fault
+  status for live acquisition bottleneck triage. The C SDK header
   `fieldmesh_firmware_dma_ctrl.h` is the shared ARM-side register contract for
   offsets, masks, metadata packing, and status decode. `fieldmesh-ctrl-write
   --fw-dma-status-self-test`, `--fw-dma-status-idle-self-test`, and

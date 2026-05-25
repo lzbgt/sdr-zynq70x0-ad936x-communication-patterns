@@ -498,7 +498,7 @@ the first-line debug split between malformed input, TUN ingress starvation,
 full ARM-to-PL queues, PL service latency, and RX drain lag.
 
 The board-level packet-DMA endpoint is also controlled from the lightweight
-sidecar window. `0x140..0x1e8` contains fixed binary firmware-DMA control and
+sidecar window. `0x140..0x204` contains fixed binary firmware-DMA control and
 status registers: endpoint enable, ingress enable, egress enable, MAC scheduler
 enable, MAC tick enable, MAC stop, service budget, queued/selected status, TX
 parser byte/packet/drop/fault counters, ingress byte/packet/descriptor/drop/fault
@@ -507,7 +507,8 @@ BRAM CRC/bounds counters, aggregate BRAM errors, FPGA MAC-service latency
 counters plus a hardware latency budget/over-budget counter used by live gates
 for bounded service-latency checks, and FPGA-native TX sideband defaults for
 peer index, MCS, retry budget, descriptor flags, and sequence seed. RF-engine
-builds extend the same sidecar aperture with QPSK RX acquisition/framing
+builds extend the same sidecar aperture with QPSK RX demod quality,
+acquisition/framing
 diagnostics: byte-sync lock, selected byte phase, selected QPSK quadrant
 rotation, sync input/output byte counters, lock/slip/rotation/search-drop
 counters, packet/byte/drop counters, CRC rejects, resyncs, and RX framer fault

@@ -8,7 +8,8 @@
 `timescale 1ns/1ps
 
 module fieldmesh_qpsk_iq_demodulator #(
-    parameter integer SAMPLES_PER_SYMBOL = 1
+    parameter integer SAMPLES_PER_SYMBOL = 1,
+    parameter integer QUALITY_MARGIN_THRESHOLD = 512
 ) (
     input  wire        clk,
     input  wire        rst,
@@ -25,9 +26,16 @@ module fieldmesh_qpsk_iq_demodulator #(
     output wire        m_axis_tlast,
 
     output reg  [31:0] sample_count,
+    output reg  [31:0] symbol_count,
     output reg  [31:0] byte_count,
     output reg  [31:0] packet_count,
-    output reg  [31:0] fault_count
+    output reg  [31:0] fault_count,
+    output reg  [31:0] low_margin_symbol_count,
+    output reg  [31:0] tie_symbol_count,
+    output reg  [31:0] min_symbol_margin,
+    output reg  [31:0] margin_accum,
+    output reg  [31:0] output_stall_cycle_count,
+    output reg  [31:0] input_backpressure_cycle_count
 );
 
 reg        out_valid = 1'b0;
@@ -38,6 +46,8 @@ reg [1:0]  pair_index = 2'd3;
 reg [7:0]  sample_index = 8'd0;
 reg signed [31:0] i_acc = 32'sd0;
 reg signed [31:0] q_acc = 32'sd0;
+
+localparam [31:0] QUALITY_MARGIN_THRESHOLD_U32 = QUALITY_MARGIN_THRESHOLD;
 
 wire signed [15:0] i_sample = s_axis_tdata[15:0];
 wire signed [15:0] q_sample = s_axis_tdata[31:16];
@@ -54,11 +64,25 @@ wire final_pair = (pair_index == 2'd0);
 wire malformed_tlast = s_axis_tlast && !(final_sample && final_pair);
 wire output_fire = out_valid && m_axis_tready;
 wire input_fire = s_axis_tvalid && s_axis_tready;
+wire output_stalled = out_valid && !m_axis_tready;
+wire input_backpressured = s_axis_tvalid && !s_axis_tready;
+wire [31:0] i_margin = abs32(i_sum_next);
+wire [31:0] q_margin = abs32(q_sum_next);
+wire [31:0] symbol_margin = i_margin < q_margin ? i_margin : q_margin;
+wire low_margin_symbol = symbol_margin <= QUALITY_MARGIN_THRESHOLD_U32;
+wire tie_symbol = (i_sum_next == 32'sd0) || (q_sum_next == 32'sd0);
 
 assign s_axis_tready = enable && (!out_valid || m_axis_tready);
 assign m_axis_tvalid = enable && out_valid;
 assign m_axis_tdata = out_data;
 assign m_axis_tlast = out_last;
+
+function [31:0] abs32;
+    input signed [31:0] value;
+    begin
+        abs32 = value < 32'sd0 ? (32'd0 - value[31:0]) : value[31:0];
+    end
+endfunction
 
 always @(posedge clk) begin
     if (rst || !enable) begin
@@ -71,10 +95,24 @@ always @(posedge clk) begin
         i_acc <= 32'sd0;
         q_acc <= 32'sd0;
         sample_count <= 32'd0;
+        symbol_count <= 32'd0;
         byte_count <= 32'd0;
         packet_count <= 32'd0;
         fault_count <= 32'd0;
+        low_margin_symbol_count <= 32'd0;
+        tie_symbol_count <= 32'd0;
+        min_symbol_margin <= 32'd0;
+        margin_accum <= 32'd0;
+        output_stall_cycle_count <= 32'd0;
+        input_backpressure_cycle_count <= 32'd0;
     end else begin
+        if (output_stalled) begin
+            output_stall_cycle_count <= output_stall_cycle_count + 1'b1;
+        end
+        if (input_backpressured) begin
+            input_backpressure_cycle_count <= input_backpressure_cycle_count + 1'b1;
+        end
+
         if (output_fire) begin
             out_valid <= 1'b0;
         end
@@ -93,6 +131,17 @@ always @(posedge clk) begin
                 i_acc <= 32'sd0;
                 q_acc <= 32'sd0;
                 sample_index <= 8'd0;
+                symbol_count <= symbol_count + 1'b1;
+                if (low_margin_symbol) begin
+                    low_margin_symbol_count <= low_margin_symbol_count + 1'b1;
+                end
+                if (tie_symbol) begin
+                    tie_symbol_count <= tie_symbol_count + 1'b1;
+                end
+                if (symbol_count == 32'd0 || symbol_margin < min_symbol_margin) begin
+                    min_symbol_margin <= symbol_margin;
+                end
+                margin_accum <= margin_accum + symbol_margin;
 
                 if (final_pair) begin
                     out_valid <= 1'b1;

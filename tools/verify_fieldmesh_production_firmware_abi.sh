@@ -213,7 +213,9 @@ int main(void) {
         FIELDMESH_QPSK_RX_REG_SYNC_STATUS != 0x1b8u ||
         FIELDMESH_QPSK_RX_REG_CRC_ERRORS != 0x1e0u ||
         FIELDMESH_QPSK_RX_REG_FAULT_STATUS != 0x1e8u ||
-        FIELDMESH_QPSK_RX_DIAG_REG_COUNT != 13u) {
+        FIELDMESH_QPSK_RX_REG_DEMOD_LOW_MARGIN_SYMBOLS != 0x1f0u ||
+        FIELDMESH_QPSK_RX_REG_DEMOD_INPUT_BACKPRESSURE_CYCLES != 0x204u ||
+        FIELDMESH_QPSK_RX_DIAG_REG_COUNT != 20u) {
         return 1;
     }
     if (fieldmesh_fw_dma_status_offset(0u) != FIELDMESH_FW_DMA_REG_CONTROL ||
@@ -229,7 +231,9 @@ int main(void) {
     if (fieldmesh_qpsk_rx_diag_offset(0u) != FIELDMESH_QPSK_RX_REG_SYNC_STATUS ||
         fieldmesh_qpsk_rx_diag_offset(10u) != FIELDMESH_QPSK_RX_REG_CRC_ERRORS ||
         fieldmesh_qpsk_rx_diag_offset(12u) != FIELDMESH_QPSK_RX_REG_FAULT_STATUS ||
-        fieldmesh_qpsk_rx_diag_offset(13u) != 0u) {
+        fieldmesh_qpsk_rx_diag_offset(14u) != FIELDMESH_QPSK_RX_REG_DEMOD_LOW_MARGIN_SYMBOLS ||
+        fieldmesh_qpsk_rx_diag_offset(19u) != FIELDMESH_QPSK_RX_REG_DEMOD_INPUT_BACKPRESSURE_CYCLES ||
+        fieldmesh_qpsk_rx_diag_offset(20u) != 0u) {
         return 16;
     }
     if (FIELDMESH_FW_DMA_ARM_CONTROL != 0x0000001fu ||
@@ -346,7 +350,11 @@ int main(void) {
         qpsk_diag.selected_rotation != 1u ||
         qpsk_diag.sync_search_drops != 17u ||
         qpsk_diag.rx_packets != 29u ||
-        qpsk_diag.rx_bytes != 8192u) {
+        qpsk_diag.rx_bytes != 8192u ||
+        qpsk_diag.demod_low_margin_symbols != 7u ||
+        qpsk_diag.demod_tie_symbols != 2u ||
+        qpsk_diag.demod_min_symbol_margin != 48u ||
+        qpsk_diag.demod_input_backpressure_cycles != 13u) {
         return 17;
     }
     regs[1] = 0xffff0000u;
@@ -732,7 +740,9 @@ required = [
     "FIELDMESH_QPSK_RX_REG_SYNC_STATUS 0x1b8u",
     "FIELDMESH_QPSK_RX_REG_CRC_ERRORS 0x1e0u",
     "FIELDMESH_QPSK_RX_REG_FAULT_STATUS 0x1e8u",
-    "FIELDMESH_QPSK_RX_DIAG_REG_COUNT 13u",
+    "FIELDMESH_QPSK_RX_REG_DEMOD_LOW_MARGIN_SYMBOLS 0x1f0u",
+    "FIELDMESH_QPSK_RX_REG_DEMOD_INPUT_BACKPRESSURE_CYCLES 0x204u",
+    "FIELDMESH_QPSK_RX_DIAG_REG_COUNT 20u",
     "fieldmesh_qpsk_rx_diag_t",
     "fieldmesh_qpsk_rx_diag_offset",
     "fieldmesh_qpsk_rx_diag_from_regs",

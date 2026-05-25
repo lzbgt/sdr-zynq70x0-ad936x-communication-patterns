@@ -32,7 +32,9 @@ required_header_tokens = [
     "FIELDMESH_QPSK_RX_REG_SYNC_STATUS 0x1b8u",
     "FIELDMESH_QPSK_RX_REG_CRC_ERRORS 0x1e0u",
     "FIELDMESH_QPSK_RX_REG_FAULT_STATUS 0x1e8u",
-    "FIELDMESH_QPSK_RX_DIAG_REG_COUNT 13u",
+    "FIELDMESH_QPSK_RX_REG_DEMOD_LOW_MARGIN_SYMBOLS 0x1f0u",
+    "FIELDMESH_QPSK_RX_REG_DEMOD_INPUT_BACKPRESSURE_CYCLES 0x204u",
+    "FIELDMESH_QPSK_RX_DIAG_REG_COUNT 20u",
     "fieldmesh_qpsk_rx_diag_offset",
     "fieldmesh_qpsk_rx_diag_from_regs",
     "fieldmesh_qpsk_rx_diag_test_regs_locked",
@@ -185,11 +187,11 @@ for path_name, source in (
         raise SystemExit(f"{path_name} still accepts stale 0x178 firmware DMA boundary")
 if "register pages through 0x1b4" not in dma_check:
     raise SystemExit("DMA overlay check missing firmware DMA 0x1b4 boundary")
-if "register pages through 0x1e8" not in rf_check:
-    raise SystemExit("RF-engine overlay check missing QPSK diagnostics 0x1e8 boundary")
+if "register pages through 0x204" not in rf_check:
+    raise SystemExit("RF-engine overlay check missing QPSK diagnostics 0x204 boundary")
 
 for token in (
-    "register pages through 0x1e8",
+    "register pages through 0x204",
     "fieldmesh_ctrl/fw_dma_bram_bounds_error_count",
     "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_last_cycles fieldmesh_ctrl/fw_dma_service_latency_last_cycles",
     "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_max_cycles fieldmesh_ctrl/fw_dma_service_latency_max_cycles",
@@ -213,7 +215,7 @@ for token in (
     "fieldmesh_ctrl/fw_dma_service_latency_accum_cycles",
     "fieldmesh_ctrl/fw_dma_service_latency_budget_cycles",
     "fieldmesh_ctrl/fw_dma_service_latency_over_budget_count",
-    "register pages through 0x1e8",
+    "register pages through 0x204",
     "fieldmesh_ctrl/qpsk_sync_search_drop_count",
     "fieldmesh_ctrl/qpsk_rx_crc_error_count",
 ):
@@ -280,6 +282,8 @@ for token in (
     "fieldmesh_qpsk_rx_diag",
     "sync_search_drops",
     "rx_crc_errors",
+    "demod_low_margin_symbols",
+    "demod_input_backpressure_cycles",
     "fw_dma_config_bad_flags.err",
 ):
     if token not in rf_tools:
@@ -298,6 +302,7 @@ for token in (
     "fieldmesh_fw_dma_status_test_regs_idle",
     "fieldmesh_qpsk_rx_diag_offset(12u)",
     "FIELDMESH_QPSK_RX_REG_FAULT_STATUS",
+    "FIELDMESH_QPSK_RX_REG_DEMOD_INPUT_BACKPRESSURE_CYCLES",
     "fieldmesh_qpsk_rx_diag_from_regs",
     "fieldmesh_qpsk_rx_diag_test_regs_locked",
     "fieldmesh_fw_dma_status_config_allowed",

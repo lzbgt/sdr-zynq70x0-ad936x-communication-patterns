@@ -56,8 +56,15 @@ extern "C" {
 #define FIELDMESH_QPSK_RX_REG_CRC_ERRORS 0x1e0u
 #define FIELDMESH_QPSK_RX_REG_RESYNCS 0x1e4u
 #define FIELDMESH_QPSK_RX_REG_FAULT_STATUS 0x1e8u
+#define FIELDMESH_QPSK_RX_REG_DEMOD_SYMBOLS 0x1ecu
+#define FIELDMESH_QPSK_RX_REG_DEMOD_LOW_MARGIN_SYMBOLS 0x1f0u
+#define FIELDMESH_QPSK_RX_REG_DEMOD_TIE_SYMBOLS 0x1f4u
+#define FIELDMESH_QPSK_RX_REG_DEMOD_MIN_SYMBOL_MARGIN 0x1f8u
+#define FIELDMESH_QPSK_RX_REG_DEMOD_MARGIN_ACCUM 0x1fcu
+#define FIELDMESH_QPSK_RX_REG_DEMOD_OUTPUT_STALL_CYCLES 0x200u
+#define FIELDMESH_QPSK_RX_REG_DEMOD_INPUT_BACKPRESSURE_CYCLES 0x204u
 
-#define FIELDMESH_QPSK_RX_DIAG_REG_COUNT 13u
+#define FIELDMESH_QPSK_RX_DIAG_REG_COUNT 20u
 
 #define FIELDMESH_QPSK_RX_SYNC_STATUS_PHASE_MASK 0x00000003u
 #define FIELDMESH_QPSK_RX_SYNC_STATUS_ROTATION_MASK 0x0000000cu
@@ -172,6 +179,13 @@ typedef struct fieldmesh_qpsk_rx_diag {
     uint32_t rx_crc_errors;
     uint32_t rx_resyncs;
     uint32_t fault_status;
+    uint32_t demod_symbols;
+    uint32_t demod_low_margin_symbols;
+    uint32_t demod_tie_symbols;
+    uint32_t demod_min_symbol_margin;
+    uint32_t demod_margin_accum;
+    uint32_t demod_output_stall_cycles;
+    uint32_t demod_input_backpressure_cycles;
 } fieldmesh_qpsk_rx_diag_t;
 
 typedef struct fieldmesh_fw_dma_action_policy {
@@ -234,6 +248,13 @@ static inline uint32_t fieldmesh_qpsk_rx_diag_offset(size_t index)
     case 10u: return FIELDMESH_QPSK_RX_REG_CRC_ERRORS;
     case 11u: return FIELDMESH_QPSK_RX_REG_RESYNCS;
     case 12u: return FIELDMESH_QPSK_RX_REG_FAULT_STATUS;
+    case 13u: return FIELDMESH_QPSK_RX_REG_DEMOD_SYMBOLS;
+    case 14u: return FIELDMESH_QPSK_RX_REG_DEMOD_LOW_MARGIN_SYMBOLS;
+    case 15u: return FIELDMESH_QPSK_RX_REG_DEMOD_TIE_SYMBOLS;
+    case 16u: return FIELDMESH_QPSK_RX_REG_DEMOD_MIN_SYMBOL_MARGIN;
+    case 17u: return FIELDMESH_QPSK_RX_REG_DEMOD_MARGIN_ACCUM;
+    case 18u: return FIELDMESH_QPSK_RX_REG_DEMOD_OUTPUT_STALL_CYCLES;
+    case 19u: return FIELDMESH_QPSK_RX_REG_DEMOD_INPUT_BACKPRESSURE_CYCLES;
     default: return 0u;
     }
 }
@@ -346,6 +367,13 @@ static inline void fieldmesh_qpsk_rx_diag_test_regs_locked(
     regs[10] = 0u;
     regs[11] = 0u;
     regs[12] = 0u;
+    regs[13] = 120u;
+    regs[14] = 7u;
+    regs[15] = 2u;
+    regs[16] = 48u;
+    regs[17] = 180000u;
+    regs[18] = 11u;
+    regs[19] = 13u;
 }
 
 static inline int fieldmesh_fw_dma_control_endpoint_enable(
@@ -454,6 +482,13 @@ static inline int fieldmesh_qpsk_rx_diag_from_regs(
     diag->rx_crc_errors = regs[10];
     diag->rx_resyncs = regs[11];
     diag->fault_status = regs[12] & FIELDMESH_QPSK_RX_FAULT_STATUS_FAULT;
+    diag->demod_symbols = regs[13];
+    diag->demod_low_margin_symbols = regs[14];
+    diag->demod_tie_symbols = regs[15];
+    diag->demod_min_symbol_margin = regs[16];
+    diag->demod_margin_accum = regs[17];
+    diag->demod_output_stall_cycles = regs[18];
+    diag->demod_input_backpressure_cycles = regs[19];
     return 1;
 }
 

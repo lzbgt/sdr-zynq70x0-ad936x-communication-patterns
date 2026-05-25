@@ -66,6 +66,13 @@ localparam [15:0] REG_QPSK_RX_DROPS                = 16'h01dc;
 localparam [15:0] REG_QPSK_RX_CRC_ERRORS           = 16'h01e0;
 localparam [15:0] REG_QPSK_RX_RESYNCS              = 16'h01e4;
 localparam [15:0] REG_QPSK_RX_FAULT_STATUS         = 16'h01e8;
+localparam [15:0] REG_QPSK_DEMOD_SYMBOLS           = 16'h01ec;
+localparam [15:0] REG_QPSK_DEMOD_LOW_MARGIN_SYMBOLS = 16'h01f0;
+localparam [15:0] REG_QPSK_DEMOD_TIE_SYMBOLS       = 16'h01f4;
+localparam [15:0] REG_QPSK_DEMOD_MIN_SYMBOL_MARGIN = 16'h01f8;
+localparam [15:0] REG_QPSK_DEMOD_MARGIN_ACCUM      = 16'h01fc;
+localparam [15:0] REG_QPSK_DEMOD_OUTPUT_STALL_CYCLES = 16'h0200;
+localparam [15:0] REG_QPSK_DEMOD_INPUT_BACKPRESSURE_CYCLES = 16'h0204;
 
 reg clk = 1'b0;
 reg resetn = 1'b0;
@@ -167,6 +174,13 @@ reg [31:0] qpsk_rx_drop_count = 32'd0;
 reg [31:0] qpsk_rx_crc_error_count = 32'd0;
 reg [31:0] qpsk_rx_resync_count = 32'd0;
 reg qpsk_rx_fault = 1'b0;
+reg [31:0] qpsk_demod_symbol_count = 32'd0;
+reg [31:0] qpsk_demod_low_margin_symbol_count = 32'd0;
+reg [31:0] qpsk_demod_tie_symbol_count = 32'd0;
+reg [31:0] qpsk_demod_min_symbol_margin = 32'd0;
+reg [31:0] qpsk_demod_margin_accum = 32'd0;
+reg [31:0] qpsk_demod_output_stall_cycle_count = 32'd0;
+reg [31:0] qpsk_demod_input_backpressure_cycle_count = 32'd0;
 
 fieldmesh_sidecar_ctrl_axi_lite dut (
     .s_axi_aclk(clk),
@@ -267,6 +281,13 @@ fieldmesh_sidecar_ctrl_axi_lite dut (
     .qpsk_rx_crc_error_count(qpsk_rx_crc_error_count),
     .qpsk_rx_resync_count(qpsk_rx_resync_count),
     .qpsk_rx_fault(qpsk_rx_fault),
+    .qpsk_demod_symbol_count(qpsk_demod_symbol_count),
+    .qpsk_demod_low_margin_symbol_count(qpsk_demod_low_margin_symbol_count),
+    .qpsk_demod_tie_symbol_count(qpsk_demod_tie_symbol_count),
+    .qpsk_demod_min_symbol_margin(qpsk_demod_min_symbol_margin),
+    .qpsk_demod_margin_accum(qpsk_demod_margin_accum),
+    .qpsk_demod_output_stall_cycle_count(qpsk_demod_output_stall_cycle_count),
+    .qpsk_demod_input_backpressure_cycle_count(qpsk_demod_input_backpressure_cycle_count),
     .irq(irq),
     .irq_status(irq_status)
 );
@@ -523,6 +544,13 @@ initial begin
     qpsk_rx_crc_error_count = 32'd5;
     qpsk_rx_resync_count = 32'd6;
     qpsk_rx_fault = 1'b1;
+    qpsk_demod_symbol_count = 32'd120;
+    qpsk_demod_low_margin_symbol_count = 32'd7;
+    qpsk_demod_tie_symbol_count = 32'd2;
+    qpsk_demod_min_symbol_margin = 32'd48;
+    qpsk_demod_margin_accum = 32'd180000;
+    qpsk_demod_output_stall_cycle_count = 32'd11;
+    qpsk_demod_input_backpressure_cycle_count = 32'd13;
     repeat (2) @(negedge clk);
     expect_axi(REG_QPSK_SYNC_STATUS, 32'h0000_0036);
     expect_axi(REG_QPSK_SYNC_INPUT_BYTES, 32'd900);
@@ -537,6 +565,13 @@ initial begin
     expect_axi(REG_QPSK_RX_CRC_ERRORS, 32'd5);
     expect_axi(REG_QPSK_RX_RESYNCS, 32'd6);
     expect_axi(REG_QPSK_RX_FAULT_STATUS, 32'h0000_0001);
+    expect_axi(REG_QPSK_DEMOD_SYMBOLS, 32'd120);
+    expect_axi(REG_QPSK_DEMOD_LOW_MARGIN_SYMBOLS, 32'd7);
+    expect_axi(REG_QPSK_DEMOD_TIE_SYMBOLS, 32'd2);
+    expect_axi(REG_QPSK_DEMOD_MIN_SYMBOL_MARGIN, 32'd48);
+    expect_axi(REG_QPSK_DEMOD_MARGIN_ACCUM, 32'd180000);
+    expect_axi(REG_QPSK_DEMOD_OUTPUT_STALL_CYCLES, 32'd11);
+    expect_axi(REG_QPSK_DEMOD_INPUT_BACKPRESSURE_CYCLES, 32'd13);
 
     axi_write(REG_FW_DMA_CONTROL, 32'h0000_0020);
     if (fw_dma_enable || fw_dma_ingress_enable || fw_dma_egress_enable ||
