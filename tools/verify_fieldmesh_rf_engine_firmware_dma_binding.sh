@@ -129,7 +129,10 @@ for token in (
 for token in (
     "module fieldmesh_axis_header_framer",
     "RF demodulation produces a continuous byte stream",
-    "assign s_axis_tready = enable && !emit_active",
+    "Two packet banks let one packet drain",
+    "reg [7:0] packet_mem0 [0:MAX_PACKET_BYTES-1]",
+    "reg [7:0] packet_mem1 [0:MAX_PACKET_BYTES-1]",
+    "assign s_axis_tready = enable && !capture_bank_busy",
     "assign m_axis_tlast = emit_active && (emit_index == emit_len - 16'd1)",
     "packet_total_len = 16'd32 + payload_len_next",
 ):

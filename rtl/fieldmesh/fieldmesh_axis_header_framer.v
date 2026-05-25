@@ -3,7 +3,8 @@
 // RF demodulation produces a continuous byte stream; AXI TLAST is not preserved
 // over the air. This primitive rebuilds packet boundaries from the fixed
 // FieldMesh in-band header and payload length, then emits a byte AXI-stream with
-// TLAST restored for the RX DMA path.
+// TLAST restored for the RX DMA path. Two packet banks let one packet drain to
+// RX DMA while the next packet is captured from the demodulator.
 
 `timescale 1ns/1ps
 
@@ -36,17 +37,33 @@ localparam [7:0] FM_MAGIC_1 = 8'h46;
 localparam [7:0] FM_VERSION = 8'h01;
 localparam [7:0] FM_HEADER_LEN = 8'h20;
 
-reg [7:0] packet_mem [0:MAX_PACKET_BYTES-1];
+reg [7:0] packet_mem0 [0:MAX_PACKET_BYTES-1];
+reg [7:0] packet_mem1 [0:MAX_PACKET_BYTES-1];
 reg [15:0] rx_index;
 reg [15:0] emit_index;
 reg [15:0] emit_len;
+reg [15:0] bank_len0;
+reg [15:0] bank_len1;
 reg [15:0] payload_len;
 reg [7:0] traffic_class;
 reg packet_bad;
 reg emit_active;
+reg emit_bank;
+reg capture_bank;
+reg [1:0] bank_ready;
 
 wire s_fire = s_axis_tvalid && s_axis_tready;
 wire m_fire = m_axis_tvalid && m_axis_tready;
+wire capture_bank_busy = bank_ready[capture_bank] ||
+    (emit_active && emit_bank == capture_bank);
+wire other_capture_bank = !capture_bank;
+wire other_capture_bank_free = !bank_ready[other_capture_bank] &&
+    !(emit_active && emit_bank == other_capture_bank);
+wire [15:0] pending_emit_len =
+    bank_ready[0] ? bank_len0 :
+    bank_ready[1] ? bank_len1 :
+    16'd0;
+wire pending_emit_bank = bank_ready[0] ? 1'b0 : 1'b1;
 wire rx_index_in_range = rx_index < MAX_PACKET_BYTES[15:0];
 wire [15:0] payload_len_next =
     (rx_index == 16'd28) ? {payload_len[15:8], s_axis_tdata} :
@@ -66,9 +83,11 @@ wire current_header_bad =
     (rx_index >= 16'd31 && !total_len_valid);
 wire packet_valid = !packet_bad && !current_header_bad && header_class_valid && total_len_valid;
 
-assign s_axis_tready = enable && !emit_active;
+assign s_axis_tready = enable && !capture_bank_busy;
 assign m_axis_tvalid = enable && emit_active;
-assign m_axis_tdata = packet_mem[emit_index[ADDR_WIDTH-1:0]];
+assign m_axis_tdata =
+    emit_bank ? packet_mem1[emit_index[ADDR_WIDTH-1:0]] :
+    packet_mem0[emit_index[ADDR_WIDTH-1:0]];
 assign m_axis_tlast = emit_active && (emit_index == emit_len - 16'd1);
 
 always @(posedge clk) begin
@@ -76,22 +95,39 @@ always @(posedge clk) begin
         rx_index <= 16'd0;
         emit_index <= 16'd0;
         emit_len <= 16'd0;
+        bank_len0 <= 16'd0;
+        bank_len1 <= 16'd0;
         payload_len <= 16'd0;
         traffic_class <= 8'd0;
         packet_bad <= 1'b0;
         emit_active <= 1'b0;
+        emit_bank <= 1'b0;
+        capture_bank <= 1'b0;
+        bank_ready <= 2'b00;
         packet_count <= 32'd0;
         byte_count <= 32'd0;
         drop_count <= 32'd0;
         resync_count <= 32'd0;
         fault <= 1'b0;
     end else begin
+        if (!emit_active && bank_ready != 2'b00) begin
+            emit_bank <= pending_emit_bank;
+            emit_len <= pending_emit_len;
+            emit_index <= 16'd0;
+            emit_active <= 1'b1;
+            bank_ready[pending_emit_bank] <= 1'b0;
+        end
+
         if (s_fire) begin
             if (rx_index == 16'd0 && s_axis_tdata != FM_MAGIC_0) begin
                 resync_count <= resync_count + 1'b1;
             end else begin
                 if (rx_index_in_range) begin
-                    packet_mem[rx_index[ADDR_WIDTH-1:0]] <= s_axis_tdata;
+                    if (capture_bank) begin
+                        packet_mem1[rx_index[ADDR_WIDTH-1:0]] <= s_axis_tdata;
+                    end else begin
+                        packet_mem0[rx_index[ADDR_WIDTH-1:0]] <= s_axis_tdata;
+                    end
                 end
 
                 case (rx_index)
@@ -104,9 +140,16 @@ always @(posedge clk) begin
 
                 if (packet_complete) begin
                     if (packet_valid) begin
-                        emit_len <= packet_total_len;
-                        emit_index <= 16'd0;
-                        emit_active <= 1'b1;
+                        if (capture_bank) begin
+                            bank_len1 <= packet_total_len;
+                            bank_ready[1] <= 1'b1;
+                        end else begin
+                            bank_len0 <= packet_total_len;
+                            bank_ready[0] <= 1'b1;
+                        end
+                        if (other_capture_bank_free) begin
+                            capture_bank <= other_capture_bank;
+                        end
                     end else begin
                         drop_count <= drop_count + 1'b1;
                         fault <= 1'b1;
@@ -135,6 +178,9 @@ always @(posedge clk) begin
                 emit_active <= 1'b0;
                 emit_index <= 16'd0;
                 packet_count <= packet_count + 1'b1;
+                if (capture_bank == emit_bank && !bank_ready[emit_bank]) begin
+                    capture_bank <= emit_bank;
+                end
             end else begin
                 emit_index <= emit_index + 1'b1;
             end

@@ -303,7 +303,8 @@ generated IQ through `fieldmesh_iq_tx_guard`, crosses it through
 `fieldmesh_iq_dac_driver` while its source selector resets to vendor
 pass-through through the sidecar control window. The same overlay routes AD9361
 RX decimator samples through `fieldmesh_iq_adc_axis_source`,
-`fieldmesh_qpsk_demodulator`, `fieldmesh_axis_header_framer`, and
+`fieldmesh_qpsk_demodulator`, ping-pong-buffered
+`fieldmesh_axis_header_framer`, and
 `fieldmesh_iq_rx_cdc` before RX DMA.
 `tools/check_fieldmesh_control_overlay_vivado.sh` and
 `tools/check_fieldmesh_bridge_overlay_vivado.sh`,

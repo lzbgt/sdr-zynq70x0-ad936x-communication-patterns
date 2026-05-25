@@ -201,8 +201,9 @@ matching RX primitive: it converts signed QPSK I/Q samples back into byte
 stream data with the same MSB-first bit-pair order and exposes sample, byte,
 packet, and fault counters for the firmware boundary.
 `fieldmesh_axis_header_framer.v` restores RX packet TLAST from the FieldMesh
-in-band header and payload length before RX DMA. `fieldmesh_iq_tx_guard.v`
-is the post-symbolizer guard: it only admits IQ samples when TX is enabled, armed, and
+in-band header and payload length before RX DMA, using two packet banks so one
+packet can drain toward RX DMA while the next demodulated packet is captured.
+`fieldmesh_iq_tx_guard.v` is the post-symbolizer guard: it only admits IQ samples when TX is enabled, armed, and
 in the allowed schedule slot, and the copied RF-engine overlay wires its
 control and status pins to the sidecar AXI-lite window while resetting it
 unarmed. `fieldmesh_axis_async_fifo.v` then moves guarded IQ samples into the

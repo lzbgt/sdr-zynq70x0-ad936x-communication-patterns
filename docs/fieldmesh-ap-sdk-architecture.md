@@ -582,8 +582,9 @@ Stage 2: Board-local service
   QPSK I/Q symbols without taking ownership of RF tuning, filtering, TX enable,
   or scheduled launch. `fieldmesh_qpsk_iq_demodulator` is the matching RX
   primitive for hard-decision QPSK IQ-to-byte recovery, with
-  `fieldmesh_iq_adc_axis_source` and `fieldmesh_axis_header_framer` now wiring
-  AD9361 RX samples back into packet DMA through FPGA logic. `fieldmesh_iq_tx_guard`
+  `fieldmesh_iq_adc_axis_source` and ping-pong-buffered
+  `fieldmesh_axis_header_framer` now wiring AD9361 RX samples back into packet
+  DMA through FPGA logic. `fieldmesh_iq_tx_guard`
   is the next TX boundary; it only
   admits symbolized IQ when TX is explicitly enabled, armed, and in-slot. The
   `--rf-engine-overlay` copied-HDL gate now proves the symbolizer, RX ADC

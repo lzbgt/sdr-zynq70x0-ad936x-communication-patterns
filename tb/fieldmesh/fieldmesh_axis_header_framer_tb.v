@@ -124,7 +124,6 @@ task drain_packet;
     begin
         @(posedge clk);
         while (!m_axis_tvalid) @(posedge clk);
-        if (s_axis_tready) fail("input ready while complete packet is being emitted");
         m_axis_tready = 1'b1;
         for (i = 0; i < 36; i = i + 1) begin
             @(posedge clk);
@@ -145,11 +144,18 @@ initial begin
 
     send_packet(8'd2, 1'b0);
     if (packet_count != 32'd0) fail("packet counted before output drained");
-    drain_packet(8'd2);
     repeat (2) @(posedge clk);
-    if (packet_count != 32'd1) fail("packet counter mismatch");
-    if (byte_count != 32'd36) fail("byte counter mismatch");
-    if (rx_bytes != 36) fail("output byte count mismatch");
+    if (!m_axis_tvalid) fail("first packet not ready for output");
+    if (!s_axis_tready) fail("ping-pong framer did not accept input while first packet emitted");
+    send_packet(8'd3, 1'b0);
+    repeat (2) @(posedge clk);
+    if (s_axis_tready) fail("framer accepted a third packet while both banks were occupied");
+    drain_packet(8'd2);
+    drain_packet(8'd3);
+    repeat (2) @(posedge clk);
+    if (packet_count != 32'd2) fail("packet counter mismatch");
+    if (byte_count != 32'd72) fail("byte counter mismatch");
+    if (rx_bytes != 72) fail("output byte count mismatch");
     if (drop_count != 32'd0) fail("unexpected drop after valid packet");
     if (fault) fail("unexpected fault after valid packet");
 
