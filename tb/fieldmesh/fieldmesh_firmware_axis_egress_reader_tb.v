@@ -201,9 +201,10 @@ always @(posedge clk) begin
     end
 end
 
-task load_good_rx_desc;
+task load_rx_desc_status;
+    input [7:0] status;
     begin
-        rx_desc[0] = 32'hd600_0304;
+        rx_desc[0] = {16'hd600, status, 8'h04};
         rx_desc[1] = 32'h0000_1800;
         rx_desc[2] = 32'h0001_0000;
         rx_desc[3] = 32'h0000_0a55;
@@ -214,6 +215,12 @@ task load_good_rx_desc;
         rx_desc[8] = rx_desc_crc(rx_desc[0], rx_desc[1], rx_desc[2],
                                   rx_desc[3], rx_desc[4], rx_desc[5],
                                   rx_desc[6], rx_desc[7]);
+    end
+endtask
+
+task load_good_rx_desc;
+    begin
+        load_rx_desc_status(8'h03);
     end
 endtask
 
@@ -280,6 +287,38 @@ initial begin
     repeat (40) @(posedge clk);
     if (drop_count != 32'd1 || !fault || packet_count != 32'd1) begin
         fail("bad RX descriptor was not rejected");
+    end
+
+    load_rx_desc_status(8'h01);
+    pulse_start();
+    repeat (40) @(posedge clk);
+    if (drop_count != 32'd2 || packet_count != 32'd1 ||
+        capture_count != 5) begin
+        fail("RX descriptor without FEC_OK was not rejected");
+    end
+
+    load_rx_desc_status(8'h02);
+    pulse_start();
+    repeat (40) @(posedge clk);
+    if (drop_count != 32'd3 || packet_count != 32'd1 ||
+        capture_count != 5) begin
+        fail("RX descriptor without CRC_OK was not rejected");
+    end
+
+    load_rx_desc_status(8'h07);
+    pulse_start();
+    repeat (40) @(posedge clk);
+    if (drop_count != 32'd4 || packet_count != 32'd1 ||
+        capture_count != 5) begin
+        fail("RX descriptor with timeout status was not rejected");
+    end
+
+    load_rx_desc_status(8'h0b);
+    pulse_start();
+    repeat (40) @(posedge clk);
+    if (drop_count != 32'd5 || packet_count != 32'd1 ||
+        capture_count != 5) begin
+        fail("RX descriptor with clipped status was not rejected");
     end
 
     $display("PASS: fieldmesh_firmware_axis_egress_reader_tb");

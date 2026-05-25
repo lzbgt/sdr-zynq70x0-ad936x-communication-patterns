@@ -269,9 +269,10 @@ block for that wrapper: byte-wide AXI-stream packets are packed into BRAM
 packet words, then an ABI-valid TX descriptor is published state-last. This is
 still a binary PL data path, not IIO control traffic or JSON diagnostics.
 `fieldmesh_firmware_axis_egress_reader.v` adds that reusable RX side: it reads
-ABI RX descriptors, validates READY state and descriptor CRC32C, reads packet
-BRAM words, and emits byte-wide AXI-stream packets with TLAST for the future RX
-DMA or MAC egress wrapper.
+ABI RX descriptors, validates READY state, descriptor CRC32C, required
+CRC_OK/FEC_OK status, and absence of timeout/clipped status before it reads
+packet BRAM words and emits byte-wide AXI-stream packets with TLAST for the
+future RX DMA or MAC egress wrapper.
 `fieldmesh_firmware_axis_bram_mac_endpoint.v` now composes both sides with the
 BRAM MAC endpoint so one wrapper covers AXI-stream ingress, binary descriptor
 publication, MAC-budgeted service, RX/ACK metadata, packet readback, and

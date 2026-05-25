@@ -57,6 +57,10 @@ module fieldmesh_firmware_axis_egress_reader #(
 
 localparam REGION_RX = 2'd1;
 localparam FW_STATE_READY = 8'd4;
+localparam [7:0] FW_RX_STATUS_CRC_OK = 8'h01;
+localparam [7:0] FW_RX_STATUS_FEC_OK = 8'h02;
+localparam [7:0] FW_RX_STATUS_TIMEOUT = 8'h04;
+localparam [7:0] FW_RX_STATUS_CLIPPED = 8'h08;
 
 localparam [2:0] ST_IDLE = 3'd0;
 localparam [2:0] ST_DESC_WAIT = 3'd1;
@@ -95,9 +99,15 @@ wire [7:0] stream_byte =
     byte_lane == 2'd0 ? word_buf[7:0] :
     byte_lane == 2'd1 ? word_buf[15:8] :
     byte_lane == 2'd2 ? word_buf[23:16] : word_buf[31:24];
+wire [7:0] rx_status_next = rx_word0[15:8];
+wire rx_status_ok_next =
+    (rx_status_next & (FW_RX_STATUS_CRC_OK | FW_RX_STATUS_FEC_OK)) ==
+        (FW_RX_STATUS_CRC_OK | FW_RX_STATUS_FEC_OK) &&
+    (rx_status_next & (FW_RX_STATUS_TIMEOUT | FW_RX_STATUS_CLIPPED)) == 8'd0;
 
 wire desc_shape_ok_next =
     rx_word0[7:0] == FW_STATE_READY &&
+    rx_status_ok_next &&
     rx_word6[15:0] != 16'd0 &&
     rx_word6[15:0] <= PACKET_STRIDE[15:0] &&
     rx_word5[1:0] == 2'b00 &&

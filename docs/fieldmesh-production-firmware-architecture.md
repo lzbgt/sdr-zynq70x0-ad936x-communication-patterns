@@ -386,8 +386,9 @@ accepting byte-wide AXI-stream packets, packing payload bytes into firmware-ring
 packet words, and publishing binary TX descriptors with the queued state word
 written last.
 `fieldmesh_firmware_axis_egress_reader` adds the matching descriptor-validated
-RX side by reading READY RX descriptors, pulling packet words from BRAM, and
-emitting byte-wide AXI-stream packets. The AXI BRAM MAC endpoint now composes
+RX side by reading READY RX descriptors, requiring descriptor CRC32C plus
+CRC_OK/FEC_OK status with no timeout/clipped status, pulling packet words from
+BRAM, and emitting byte-wide AXI-stream packets. The AXI BRAM MAC endpoint now composes
 that egress reader with ingress and MAC service, proving the first complete
 AXI-stream ingress to MAC-drained firmware-ring service to AXI-stream egress
 path. `fieldmesh_firmware_axis_dma_endpoint` binds that internal endpoint to
