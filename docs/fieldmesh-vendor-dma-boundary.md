@@ -274,13 +274,13 @@ AXI RAM/DMA binding.
 that path: TX DMA is byte-only and reconstructed through the in-band header
 parser, while RX DMA receives byte-only packets from the descriptor-validated
 firmware egress reader. The wrapper is controlled through the existing
-`fieldmesh_ctrl` AXI-lite window at `0x140..0x21c`, which gates endpoint
+`fieldmesh_ctrl` AXI-lite window at `0x140..0x23c`, which gates endpoint
 enable, ingress, egress, MAC scheduler, MAC tick, and MAC stop, reports the
 firmware endpoint byte/packet/drop/fault counters, MAC pump counters, split
 BRAM CRC/bounds counters, FPGA MAC-service latency counters, a writable
 hardware latency budget with an over-budget flag/counter, and supplies
 FPGA-native descriptor sidebands instead of tying peer/MCS/retry/flags/sequence
-constants in Tcl. The RF-engine build also maps QPSK RX acquisition and
+constants in Tcl. The RF-engine build also maps QPSK RX acquisition, symbol timing, and
 framing diagnostics in that same C-owned aperture: byte-sync lock, selected
 byte phase, selected QPSK quadrant rotation, sync input/output byte counters,
 demodulated symbol quality/margin counters, demod stream backpressure counters,
@@ -467,7 +467,7 @@ software must explicitly arm the endpoint before packets can reach the RF
 symbolizer. The guard still resets unarmed, then feeds `fieldmesh_axis_async_fifo`
 and `fieldmesh_iq_dac_driver` so the next boundary is already in the AD9361 DAC
 clock domain. On RX, AD9361 decimator I/Q samples feed
-`fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_demodulator`,
+`fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_symbol_timing_recovery`, `fieldmesh_qpsk_demodulator`,
 `fieldmesh_qpsk_byte_sync`, and `fieldmesh_rx_header_framer`; the restored byte
 packet stream crosses `fieldmesh_iq_rx_cdc` into the sidecar DMA clock domain
 and then into RX DMA.

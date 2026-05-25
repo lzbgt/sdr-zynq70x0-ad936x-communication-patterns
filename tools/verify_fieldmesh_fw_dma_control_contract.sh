@@ -40,7 +40,9 @@ required_header_tokens = [
     "FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_CORRECTION 0x214u",
     "FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_ERROR_ACCUM 0x218u",
     "FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_UPDATES 0x21cu",
-    "FIELDMESH_QPSK_RX_DIAG_REG_COUNT 26u",
+    "FIELDMESH_QPSK_RX_REG_TIMING_INPUT_SAMPLES 0x220u",
+    "FIELDMESH_QPSK_RX_REG_TIMING_INPUT_BACKPRESSURE 0x23cu",
+    "FIELDMESH_QPSK_RX_DIAG_REG_COUNT 34u",
     "fieldmesh_qpsk_rx_diag_offset",
     "fieldmesh_qpsk_rx_diag_from_regs",
     "fieldmesh_qpsk_rx_diag_test_regs_locked",
@@ -193,11 +195,11 @@ for path_name, source in (
         raise SystemExit(f"{path_name} still accepts stale 0x178 firmware DMA boundary")
 if "register pages through 0x1b4" not in dma_check:
     raise SystemExit("DMA overlay check missing firmware DMA 0x1b4 boundary")
-if "register pages through 0x21c" not in rf_check:
-    raise SystemExit("RF-engine overlay check missing QPSK diagnostics 0x21c boundary")
+if "register pages through 0x23c" not in rf_check:
+    raise SystemExit("RF-engine overlay check missing QPSK diagnostics 0x23c boundary")
 
 for token in (
-    "register pages through 0x21c",
+    "register pages through 0x23c",
     "fieldmesh_ctrl/fw_dma_bram_bounds_error_count",
     "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_last_cycles fieldmesh_ctrl/fw_dma_service_latency_last_cycles",
     "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_max_cycles fieldmesh_ctrl/fw_dma_service_latency_max_cycles",
@@ -225,7 +227,7 @@ for token in (
     "fieldmesh_ctrl/fw_dma_service_latency_accum_cycles",
     "fieldmesh_ctrl/fw_dma_service_latency_budget_cycles",
     "fieldmesh_ctrl/fw_dma_service_latency_over_budget_count",
-    "register pages through 0x21c",
+    "register pages through 0x23c",
     "fieldmesh_ctrl/qpsk_sync_search_drop_count",
     "fieldmesh_ctrl/qpsk_rx_crc_error_count",
     "fieldmesh_ctrl/qpsk_demod_dc_update_count",
@@ -301,6 +303,8 @@ for token in (
     "demod_i_dc_estimate",
     "demod_q_dc_estimate",
     "demod_dc_updates",
+    "timing_input_samples",
+    "timing_input_backpressure",
     "fw_dma_config_bad_flags.err",
 ):
     if token not in rf_tools:

@@ -4127,7 +4127,7 @@ static int build_response(fieldmesh_context_t *context,
         unsigned frequency_mhz = 2400u;
         unsigned channel = 1u;
         unsigned bandwidth_khz = 5000u;
-        unsigned sample_rate_ksps = 7680u;
+        unsigned sample_rate_ksps = 15360u;
         unsigned adaptive_mcs = 1u;
         unsigned direct_p2p = 1u;
         unsigned ap_relay_fallback = 1u;
@@ -4140,7 +4140,7 @@ static int build_response(fieldmesh_context_t *context,
                                      1u, 255u, &channel) ||
             !request_uint_or_default(request, "bandwidth_khz=", 5000u,
                                      100u, 20000u, &bandwidth_khz) ||
-            !request_uint_or_default(request, "sample_rate_ksps=", 7680u,
+            !request_uint_or_default(request, "sample_rate_ksps=", 15360u,
                                      100u, 61440u, &sample_rate_ksps) ||
             !request_uint_or_default(request, "adaptive_mcs=", 1u,
                                      0u, 1u, &adaptive_mcs) ||
@@ -11027,7 +11027,7 @@ static int query_state(const char *host,
         query_once(sockfd, &dst,
                    "FIELDMESH_RADIO_CONFIG_PLAN v1 "
                    "frequency_mhz=2400 channel=1 bandwidth_khz=5000 "
-                   "sample_rate_ksps=7680 modulation=QPSK fec=LDPC "
+                   "sample_rate_ksps=15360 modulation=QPSK fec=LDPC "
                    "adaptive_mcs=1 direct_p2p=1 ap_relay_fallback=1") == 0 &&
         query_once(sockfd, &dst, mac_ingest_request) == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_AP_BROWSE v1") == 0 &&

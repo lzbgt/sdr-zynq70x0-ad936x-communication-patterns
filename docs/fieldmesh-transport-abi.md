@@ -503,6 +503,14 @@ adds these RF TX guard registers above the packet-memory scheduler range:
 | `0x214` | `FM_QPSK_DEMOD_PHASE_CORRECTION` | signed PL decision-directed carrier phase correction coefficient |
 | `0x218` | `FM_QPSK_DEMOD_PHASE_ERROR_ACCUM` | accumulated signed QPSK carrier phase error before loop filtering |
 | `0x21c` | `FM_QPSK_DEMOD_PHASE_UPDATES` | samples used by the PL carrier phase tracker |
+| `0x220` | `FM_QPSK_TIMING_INPUT_SAMPLES` | oversampled QPSK IQ samples entering PL timing recovery |
+| `0x224` | `FM_QPSK_TIMING_OUTPUT_SYMBOLS` | centered QPSK symbol samples emitted to the demodulator |
+| `0x228` | `FM_QPSK_TIMING_SELECTED_PHASE` | last selected oversample phase |
+| `0x22c` | `FM_QPSK_TIMING_PHASE_CHANGES` | selected timing phase changes |
+| `0x230` | `FM_QPSK_TIMING_MARGIN_ACCUM` | accumulated selected-sample decision margin |
+| `0x234` | `FM_QPSK_TIMING_LOW_MARGINS` | selected symbols below the timing margin threshold |
+| `0x238` | `FM_QPSK_TIMING_OUTPUT_STALLS` | downstream stalls observed by timing recovery |
+| `0x23c` | `FM_QPSK_TIMING_INPUT_BACKPRESSURE` | upstream samples blocked by timing-recovery output pressure |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.

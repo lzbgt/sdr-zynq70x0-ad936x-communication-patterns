@@ -4924,7 +4924,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--z203-uri", default="ip:192.168.1.10")
     parser.add_argument("--z103-uri", default="ip:192.168.3.1")
     parser.add_argument("--center-frequency-hz", type=int, default=2400000000)
-    parser.add_argument("--sample-rate-hz", type=int, default=7680000)
+    parser.add_argument("--sample-rate-hz", type=int, default=15360000)
     parser.add_argument("--rf-bandwidth-hz", type=int, default=5000000)
     parser.add_argument("--fixture-attenuation-db", type=float, default=60.0)
     parser.add_argument("--samples-per-symbol", type=int, default=1)

@@ -221,7 +221,15 @@ int main(void) {
         FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_CORRECTION != 0x214u ||
         FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_ERROR_ACCUM != 0x218u ||
         FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_UPDATES != 0x21cu ||
-        FIELDMESH_QPSK_RX_DIAG_REG_COUNT != 26u) {
+        FIELDMESH_QPSK_RX_REG_TIMING_INPUT_SAMPLES != 0x220u ||
+        FIELDMESH_QPSK_RX_REG_TIMING_OUTPUT_SYMBOLS != 0x224u ||
+        FIELDMESH_QPSK_RX_REG_TIMING_SELECTED_PHASE != 0x228u ||
+        FIELDMESH_QPSK_RX_REG_TIMING_PHASE_CHANGES != 0x22cu ||
+        FIELDMESH_QPSK_RX_REG_TIMING_MARGIN_ACCUM != 0x230u ||
+        FIELDMESH_QPSK_RX_REG_TIMING_LOW_MARGINS != 0x234u ||
+        FIELDMESH_QPSK_RX_REG_TIMING_OUTPUT_STALLS != 0x238u ||
+        FIELDMESH_QPSK_RX_REG_TIMING_INPUT_BACKPRESSURE != 0x23cu ||
+        FIELDMESH_QPSK_RX_DIAG_REG_COUNT != 34u) {
         return 1;
     }
     if (fieldmesh_fw_dma_status_offset(0u) != FIELDMESH_FW_DMA_REG_CONTROL ||
@@ -243,7 +251,9 @@ int main(void) {
         fieldmesh_qpsk_rx_diag_offset(22u) != FIELDMESH_QPSK_RX_REG_DEMOD_DC_UPDATES ||
         fieldmesh_qpsk_rx_diag_offset(23u) != FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_CORRECTION ||
         fieldmesh_qpsk_rx_diag_offset(25u) != FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_UPDATES ||
-        fieldmesh_qpsk_rx_diag_offset(26u) != 0u) {
+        fieldmesh_qpsk_rx_diag_offset(26u) != FIELDMESH_QPSK_RX_REG_TIMING_INPUT_SAMPLES ||
+        fieldmesh_qpsk_rx_diag_offset(33u) != FIELDMESH_QPSK_RX_REG_TIMING_INPUT_BACKPRESSURE ||
+        fieldmesh_qpsk_rx_diag_offset(34u) != 0u) {
         return 16;
     }
     if (FIELDMESH_FW_DMA_ARM_CONTROL != 0x0000001fu ||
@@ -764,7 +774,9 @@ required = [
     "FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_CORRECTION 0x214u",
     "FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_ERROR_ACCUM 0x218u",
     "FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_UPDATES 0x21cu",
-    "FIELDMESH_QPSK_RX_DIAG_REG_COUNT 26u",
+    "FIELDMESH_QPSK_RX_REG_TIMING_INPUT_SAMPLES 0x220u",
+    "FIELDMESH_QPSK_RX_REG_TIMING_INPUT_BACKPRESSURE 0x23cu",
+    "FIELDMESH_QPSK_RX_DIAG_REG_COUNT 34u",
     "fieldmesh_qpsk_rx_diag_t",
     "fieldmesh_qpsk_rx_diag_offset",
     "fieldmesh_qpsk_rx_diag_from_regs",

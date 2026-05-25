@@ -184,6 +184,14 @@ fieldmesh_sidecar_ctrl_axi_lite #(
     .qpsk_demod_phase_correction(32'd0),
     .qpsk_demod_phase_error_accum(32'd0),
     .qpsk_demod_phase_update_count(32'd0),
+    .qpsk_timing_input_sample_count(32'd0),
+    .qpsk_timing_output_symbol_count(32'd0),
+    .qpsk_timing_selected_phase(32'd0),
+    .qpsk_timing_phase_change_count(32'd0),
+    .qpsk_timing_margin_accum(32'd0),
+    .qpsk_timing_low_margin_count(32'd0),
+    .qpsk_timing_output_stall_cycle_count(32'd0),
+    .qpsk_timing_input_backpressure_cycle_count(32'd0),
     .irq(irq),
     .irq_status(irq_status)
 );

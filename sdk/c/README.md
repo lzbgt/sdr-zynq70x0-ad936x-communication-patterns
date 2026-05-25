@@ -114,7 +114,7 @@ in `src/fieldmesh_sdk.c`:
   budget, pressure, byte/packet/drop/fault counters, MAC pump counters,
   BRAM CRC/bounds counters, and hardware service-latency budget/overrun state
   are surfaced through fixed binary
-  `fieldmesh_ctrl` registers at `0x140..0x21c`; reset leaves the endpoint
+  `fieldmesh_ctrl` registers at `0x140..0x23c`; reset leaves the endpoint
   disabled until software configures metadata and arms those bits. The
   RF-engine sidecar range also exposes QPSK RX demod quality and
   acquisition/framing diagnostics:

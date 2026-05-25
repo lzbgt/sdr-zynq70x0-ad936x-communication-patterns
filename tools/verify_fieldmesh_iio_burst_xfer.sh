@@ -303,17 +303,17 @@ cmp "$work_dir/frame.bin" "$work_dir/decoded.bin"
 "$work_dir/fieldmesh_iio_burst_xfer" --qpsk-encode \
   --frame-file "$work_dir/frame.bin" \
   --iq-file "$work_dir/fast_frame.iq" \
-  --sample-rate-hz 7680000 \
+  --sample-rate-hz 15360000 \
   --baseband-carrier-hz 100000 \
-  --samples-per-symbol 1 \
+  --samples-per-symbol 2 \
   --bit-repeat 1 \
   >"$work_dir/qpsk_fast_encode.json"
 "$work_dir/fieldmesh_iio_burst_xfer" --qpsk-decode \
   --iq-file "$work_dir/fast_frame.iq" \
   --decoded-file "$work_dir/fast_decoded.bin" \
-  --sample-rate-hz 7680000 \
+  --sample-rate-hz 15360000 \
   --baseband-carrier-hz 100000 \
-  --samples-per-symbol 1 \
+  --samples-per-symbol 2 \
   --bit-repeat 1 \
   >"$work_dir/qpsk_fast_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/fast_decoded.bin"
@@ -463,13 +463,13 @@ if fast_encode.get("event") != "fieldmesh_qpsk_modem_encode" or fast_encode.get(
     raise SystemExit(f"C fast QPSK encode failed: {fast_encode}")
 if fast_decode.get("event") != "fieldmesh_qpsk_modem_decode" or fast_decode.get("ok") is not True:
     raise SystemExit(f"C fast QPSK decode failed: {fast_decode}")
-if fast_encode.get("samples_per_symbol") != 1 or fast_encode.get("bit_repeat") != 1:
+if fast_encode.get("samples_per_symbol") != 2 or fast_encode.get("bit_repeat") != 1:
     raise SystemExit(f"C fast QPSK profile drifted: {fast_encode}")
-if fast_decode.get("samples_per_symbol") != 1 or fast_decode.get("bit_repeat") != 1:
+if fast_decode.get("samples_per_symbol") != 2 or fast_decode.get("bit_repeat") != 1:
     raise SystemExit(f"C fast QPSK decoder profile drifted: {fast_decode}")
 if fast_encode.get("bits_per_symbol") != 2 or fast_decode.get("bits_per_symbol") != 2:
     raise SystemExit(f"C fast QPSK bits/symbol proof drifted: {fast_encode} {fast_decode}")
-raw_bitrate_bps = 7_680_000 * 2 / (fast_encode["samples_per_symbol"] * fast_encode["bit_repeat"])
+raw_bitrate_bps = 15_360_000 * 2 / (fast_encode["samples_per_symbol"] * fast_encode["bit_repeat"])
 if raw_bitrate_bps < 15_360_000:
     raise SystemExit(f"C fast QPSK raw PHY target regressed: {raw_bitrate_bps}")
 PY

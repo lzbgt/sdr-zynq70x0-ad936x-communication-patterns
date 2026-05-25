@@ -69,8 +69,16 @@ extern "C" {
 #define FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_CORRECTION 0x214u
 #define FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_ERROR_ACCUM 0x218u
 #define FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_UPDATES 0x21cu
+#define FIELDMESH_QPSK_RX_REG_TIMING_INPUT_SAMPLES 0x220u
+#define FIELDMESH_QPSK_RX_REG_TIMING_OUTPUT_SYMBOLS 0x224u
+#define FIELDMESH_QPSK_RX_REG_TIMING_SELECTED_PHASE 0x228u
+#define FIELDMESH_QPSK_RX_REG_TIMING_PHASE_CHANGES 0x22cu
+#define FIELDMESH_QPSK_RX_REG_TIMING_MARGIN_ACCUM 0x230u
+#define FIELDMESH_QPSK_RX_REG_TIMING_LOW_MARGINS 0x234u
+#define FIELDMESH_QPSK_RX_REG_TIMING_OUTPUT_STALLS 0x238u
+#define FIELDMESH_QPSK_RX_REG_TIMING_INPUT_BACKPRESSURE 0x23cu
 
-#define FIELDMESH_QPSK_RX_DIAG_REG_COUNT 26u
+#define FIELDMESH_QPSK_RX_DIAG_REG_COUNT 34u
 
 #define FIELDMESH_QPSK_RX_SYNC_STATUS_PHASE_MASK 0x00000003u
 #define FIELDMESH_QPSK_RX_SYNC_STATUS_ROTATION_MASK 0x0000000cu
@@ -198,6 +206,14 @@ typedef struct fieldmesh_qpsk_rx_diag {
     int32_t demod_phase_correction;
     int32_t demod_phase_error_accum;
     uint32_t demod_phase_updates;
+    uint32_t timing_input_samples;
+    uint32_t timing_output_symbols;
+    uint32_t timing_selected_phase;
+    uint32_t timing_phase_changes;
+    uint32_t timing_margin_accum;
+    uint32_t timing_low_margins;
+    uint32_t timing_output_stalls;
+    uint32_t timing_input_backpressure;
 } fieldmesh_qpsk_rx_diag_t;
 
 typedef struct fieldmesh_fw_dma_action_policy {
@@ -273,6 +289,14 @@ static inline uint32_t fieldmesh_qpsk_rx_diag_offset(size_t index)
     case 23u: return FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_CORRECTION;
     case 24u: return FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_ERROR_ACCUM;
     case 25u: return FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_UPDATES;
+    case 26u: return FIELDMESH_QPSK_RX_REG_TIMING_INPUT_SAMPLES;
+    case 27u: return FIELDMESH_QPSK_RX_REG_TIMING_OUTPUT_SYMBOLS;
+    case 28u: return FIELDMESH_QPSK_RX_REG_TIMING_SELECTED_PHASE;
+    case 29u: return FIELDMESH_QPSK_RX_REG_TIMING_PHASE_CHANGES;
+    case 30u: return FIELDMESH_QPSK_RX_REG_TIMING_MARGIN_ACCUM;
+    case 31u: return FIELDMESH_QPSK_RX_REG_TIMING_LOW_MARGINS;
+    case 32u: return FIELDMESH_QPSK_RX_REG_TIMING_OUTPUT_STALLS;
+    case 33u: return FIELDMESH_QPSK_RX_REG_TIMING_INPUT_BACKPRESSURE;
     default: return 0u;
     }
 }
@@ -398,6 +422,14 @@ static inline void fieldmesh_qpsk_rx_diag_test_regs_locked(
     regs[23] = 31u;
     regs[24] = 0x00004000u;
     regs[25] = 512u;
+    regs[26] = 2048u;
+    regs[27] = 1024u;
+    regs[28] = 1u;
+    regs[29] = 5u;
+    regs[30] = 620000u;
+    regs[31] = 3u;
+    regs[32] = 4u;
+    regs[33] = 6u;
 }
 
 static inline int fieldmesh_fw_dma_control_endpoint_enable(
@@ -519,6 +551,14 @@ static inline int fieldmesh_qpsk_rx_diag_from_regs(
     diag->demod_phase_correction = (int32_t)regs[23];
     diag->demod_phase_error_accum = (int32_t)regs[24];
     diag->demod_phase_updates = regs[25];
+    diag->timing_input_samples = regs[26];
+    diag->timing_output_symbols = regs[27];
+    diag->timing_selected_phase = regs[28];
+    diag->timing_phase_changes = regs[29];
+    diag->timing_margin_accum = regs[30];
+    diag->timing_low_margins = regs[31];
+    diag->timing_output_stalls = regs[32];
+    diag->timing_input_backpressure = regs[33];
     return 1;
 }
 

@@ -87,6 +87,7 @@ foreach cell {
   fieldmesh_iq_tx_cdc
   fieldmesh_iq_dac_driver
   fieldmesh_iq_adc_source
+  fieldmesh_qpsk_timing_recovery
   fieldmesh_qpsk_demodulator
   fieldmesh_qpsk_byte_sync
   fieldmesh_rx_header_framer
@@ -106,6 +107,14 @@ set qpsk_preamble_bytes [get_property CONFIG.PREAMBLE_BYTES [get_bd_cells fieldm
 if {"\$qpsk_preamble_bytes" ne "4"} {
   error "fieldmesh_qpsk_symbolizer must prepend the four-byte PL acquisition preamble"
 }
+set qpsk_samples_per_symbol [get_property CONFIG.SAMPLES_PER_SYMBOL [get_bd_cells fieldmesh_qpsk_symbolizer]]
+if {"\$qpsk_samples_per_symbol" ne "2"} {
+  error "fieldmesh_qpsk_symbolizer must emit 2x oversampled QPSK symbols for PL timing recovery"
+}
+set qpsk_timing_oversample [get_property CONFIG.OVERSAMPLE_FACTOR [get_bd_cells fieldmesh_qpsk_timing_recovery]]
+if {"\$qpsk_timing_oversample" ne "2"} {
+  error "fieldmesh_qpsk_timing_recovery must select centered samples from a 2x oversampled QPSK stream"
+}
 
 set ctrl_addr_width ""
 set ctrl_s_axi [get_bd_intf_pins fieldmesh_ctrl/s_axi]
@@ -113,7 +122,7 @@ if {[lsearch -exact [list_property \$ctrl_s_axi] CONFIG.ADDR_WIDTH] >= 0} {
   set ctrl_addr_width [get_property CONFIG.ADDR_WIDTH \$ctrl_s_axi]
 }
 if {"\$ctrl_addr_width" ne "" && \$ctrl_addr_width < 12} {
-  error "fieldmesh_ctrl/s_axi address width must cover RF, firmware-DMA, and QPSK RX diagnostic register pages through 0x21c"
+  error "fieldmesh_ctrl/s_axi address width must cover RF, firmware-DMA, and QPSK RX diagnostic register pages through 0x23c"
 }
 
 foreach pin {
@@ -147,6 +156,33 @@ foreach pin {
   fieldmesh_iq_adc_source/sample_count
   fieldmesh_iq_adc_source/stall_count
   fieldmesh_iq_adc_source/invalid_pair_count
+  fieldmesh_qpsk_timing_recovery/clk
+  fieldmesh_qpsk_timing_recovery/rst
+  fieldmesh_qpsk_timing_recovery/enable
+  fieldmesh_qpsk_timing_recovery/s_axis_tvalid
+  fieldmesh_qpsk_timing_recovery/s_axis_tready
+  fieldmesh_qpsk_timing_recovery/s_axis_tdata
+  fieldmesh_qpsk_timing_recovery/s_axis_tlast
+  fieldmesh_qpsk_timing_recovery/m_axis_tvalid
+  fieldmesh_qpsk_timing_recovery/m_axis_tready
+  fieldmesh_qpsk_timing_recovery/m_axis_tdata
+  fieldmesh_qpsk_timing_recovery/m_axis_tlast
+  fieldmesh_qpsk_timing_recovery/input_sample_count
+  fieldmesh_qpsk_timing_recovery/output_symbol_count
+  fieldmesh_qpsk_timing_recovery/selected_phase
+  fieldmesh_qpsk_timing_recovery/phase_change_count
+  fieldmesh_qpsk_timing_recovery/timing_margin_accum
+  fieldmesh_qpsk_timing_recovery/low_timing_margin_count
+  fieldmesh_qpsk_timing_recovery/output_stall_cycle_count
+  fieldmesh_qpsk_timing_recovery/input_backpressure_cycle_count
+  fieldmesh_ctrl/qpsk_timing_input_sample_count
+  fieldmesh_ctrl/qpsk_timing_output_symbol_count
+  fieldmesh_ctrl/qpsk_timing_selected_phase
+  fieldmesh_ctrl/qpsk_timing_phase_change_count
+  fieldmesh_ctrl/qpsk_timing_margin_accum
+  fieldmesh_ctrl/qpsk_timing_low_margin_count
+  fieldmesh_ctrl/qpsk_timing_output_stall_cycle_count
+  fieldmesh_ctrl/qpsk_timing_input_backpressure_cycle_count
   fieldmesh_qpsk_demodulator/clk
   fieldmesh_qpsk_demodulator/rst
   fieldmesh_qpsk_demodulator/enable
@@ -534,10 +570,22 @@ assert_same_net rx_fir_decimator/enable_out_1 fieldmesh_iq_adc_source/q_enable
 assert_same_net rx_fir_decimator/data_out_0 fieldmesh_iq_adc_source/i_sample
 assert_same_net rx_fir_decimator/data_out_1 fieldmesh_iq_adc_source/q_sample
 
-assert_same_net fieldmesh_iq_adc_source/m_axis_tvalid fieldmesh_qpsk_demodulator/s_axis_tvalid
-assert_same_net fieldmesh_iq_adc_source/m_axis_tready fieldmesh_qpsk_demodulator/s_axis_tready
-assert_same_net fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_demodulator/s_axis_tdata
-assert_same_net fieldmesh_iq_adc_source/m_axis_tlast fieldmesh_qpsk_demodulator/s_axis_tlast
+assert_same_net fieldmesh_iq_adc_source/m_axis_tvalid fieldmesh_qpsk_timing_recovery/s_axis_tvalid
+assert_same_net fieldmesh_iq_adc_source/m_axis_tready fieldmesh_qpsk_timing_recovery/s_axis_tready
+assert_same_net fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_timing_recovery/s_axis_tdata
+assert_same_net fieldmesh_iq_adc_source/m_axis_tlast fieldmesh_qpsk_timing_recovery/s_axis_tlast
+assert_same_net fieldmesh_qpsk_timing_recovery/m_axis_tvalid fieldmesh_qpsk_demodulator/s_axis_tvalid
+assert_same_net fieldmesh_qpsk_timing_recovery/m_axis_tready fieldmesh_qpsk_demodulator/s_axis_tready
+assert_same_net fieldmesh_qpsk_timing_recovery/m_axis_tdata fieldmesh_qpsk_demodulator/s_axis_tdata
+assert_same_net fieldmesh_qpsk_timing_recovery/m_axis_tlast fieldmesh_qpsk_demodulator/s_axis_tlast
+assert_same_net fieldmesh_qpsk_timing_recovery/input_sample_count fieldmesh_ctrl/qpsk_timing_input_sample_count
+assert_same_net fieldmesh_qpsk_timing_recovery/output_symbol_count fieldmesh_ctrl/qpsk_timing_output_symbol_count
+assert_same_net fieldmesh_qpsk_timing_recovery/selected_phase fieldmesh_ctrl/qpsk_timing_selected_phase
+assert_same_net fieldmesh_qpsk_timing_recovery/phase_change_count fieldmesh_ctrl/qpsk_timing_phase_change_count
+assert_same_net fieldmesh_qpsk_timing_recovery/timing_margin_accum fieldmesh_ctrl/qpsk_timing_margin_accum
+assert_same_net fieldmesh_qpsk_timing_recovery/low_timing_margin_count fieldmesh_ctrl/qpsk_timing_low_margin_count
+assert_same_net fieldmesh_qpsk_timing_recovery/output_stall_cycle_count fieldmesh_ctrl/qpsk_timing_output_stall_cycle_count
+assert_same_net fieldmesh_qpsk_timing_recovery/input_backpressure_cycle_count fieldmesh_ctrl/qpsk_timing_input_backpressure_cycle_count
 assert_same_net fieldmesh_qpsk_demodulator/symbol_count fieldmesh_ctrl/qpsk_demod_symbol_count
 assert_same_net fieldmesh_qpsk_demodulator/low_margin_symbol_count fieldmesh_ctrl/qpsk_demod_low_margin_symbol_count
 assert_same_net fieldmesh_qpsk_demodulator/tie_symbol_count fieldmesh_ctrl/qpsk_demod_tie_symbol_count

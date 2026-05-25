@@ -101,7 +101,7 @@ def query_iio_transport_execute_once():
     try:
         sock.sendto(
             b"FIELDMESH_IIO_TRANSPORT_DAEMON_EXECUTE v1 "
-            b"frames=2 bytes=128 samples_per_symbol=1 bit_repeat=1",
+            b"frames=2 bytes=128 samples_per_symbol=2 bit_repeat=1",
             ("127.0.0.1", port),
         )
         data, _ = sock.recvfrom(4096)
@@ -493,7 +493,7 @@ expected_execute = {
     "python_libiio_execution_call": 0,
     "request_frames": 2,
     "request_bytes": 128,
-    "samples_per_symbol": 1,
+    "samples_per_symbol": 2,
     "bit_repeat": 1,
     "libiio_transfer_worker_runs": 1,
     "libiio_transfer_worker_frames": 2,

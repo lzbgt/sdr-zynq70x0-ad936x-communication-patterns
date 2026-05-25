@@ -298,6 +298,14 @@ static void print_qpsk_rx_diag(uint32_t base, const fieldmesh_qpsk_rx_diag_t *di
            "\"demod_phase_correction\":%" PRId32 ","
            "\"demod_phase_error_accum\":%" PRId32 ","
            "\"demod_phase_updates\":%" PRIu32 ","
+           "\"timing_input_samples\":%" PRIu32 ","
+           "\"timing_output_symbols\":%" PRIu32 ","
+           "\"timing_selected_phase\":%" PRIu32 ","
+           "\"timing_phase_changes\":%" PRIu32 ","
+           "\"timing_margin_accum\":%" PRIu32 ","
+           "\"timing_low_margins\":%" PRIu32 ","
+           "\"timing_output_stalls\":%" PRIu32 ","
+           "\"timing_input_backpressure\":%" PRIu32 ","
            "\"rx_fault\":%s,"
            "\"fault_free\":%s,"
            "\"drop_counters_clear\":%s,"
@@ -332,6 +340,14 @@ static void print_qpsk_rx_diag(uint32_t base, const fieldmesh_qpsk_rx_diag_t *di
            diag->demod_phase_correction,
            diag->demod_phase_error_accum,
            diag->demod_phase_updates,
+           diag->timing_input_samples,
+           diag->timing_output_symbols,
+           diag->timing_selected_phase,
+           diag->timing_phase_changes,
+           diag->timing_margin_accum,
+           diag->timing_low_margins,
+           diag->timing_output_stalls,
+           diag->timing_input_backpressure,
            diag->rx_fault ? "true" : "false",
            fieldmesh_qpsk_rx_diag_fault_free(diag) ? "true" : "false",
            fieldmesh_qpsk_rx_diag_drop_counters_clear(diag) ? "true" : "false",
