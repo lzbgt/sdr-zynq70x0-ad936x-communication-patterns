@@ -19,6 +19,12 @@ wire [31:0] tx_byte_count;
 wire [31:0] tx_symbol_count;
 wire [31:0] tx_packet_count;
 
+wire       tx_white_tvalid;
+wire       tx_white_tready;
+wire [7:0] tx_white_tdata;
+wire       tx_white_tlast;
+wire [31:0] tx_white_count;
+
 wire       tx_fir_tvalid;
 wire       tx_fir_tready;
 wire [31:0] tx_fir_tdata;
@@ -92,6 +98,11 @@ wire       m_axis_tvalid;
 reg        m_axis_tready = 1'b1;
 wire [7:0] m_axis_tdata;
 wire       m_axis_tlast;
+wire       rx_dewhite_tvalid;
+wire       rx_dewhite_tready;
+wire [7:0] rx_dewhite_tdata;
+wire       rx_dewhite_tlast;
+wire [31:0] rx_dewhite_count;
 wire [31:0] framer_packet_count;
 wire [31:0] framer_byte_count;
 wire [31:0] framer_drop_count;
@@ -105,6 +116,24 @@ integer sync_clear_count = 0;
 reg [7:0] rx_seen [0:63];
 reg rx_last_seen [0:63];
 
+fieldmesh_axis_payload_whitener tx_whitener (
+    .clk(clk),
+    .rst(rst),
+    .enable(enable),
+    .s_axis_tvalid(s_axis_tvalid),
+    .s_axis_tready(s_axis_tready),
+    .s_axis_tdata(s_axis_tdata),
+    .s_axis_tlast(s_axis_tlast),
+    .m_axis_tvalid(tx_white_tvalid),
+    .m_axis_tready(tx_white_tready),
+    .m_axis_tdata(tx_white_tdata),
+    .m_axis_tlast(tx_white_tlast),
+    .input_byte_count(),
+    .output_byte_count(),
+    .whitened_byte_count(tx_white_count),
+    .packet_count()
+);
+
 fieldmesh_qpsk_iq_symbolizer #(
     .SAMPLES_PER_SYMBOL(2),
     .PREAMBLE_BYTES(4),
@@ -113,10 +142,10 @@ fieldmesh_qpsk_iq_symbolizer #(
     .clk(clk),
     .rst(rst),
     .enable(enable),
-    .s_axis_tvalid(s_axis_tvalid),
-    .s_axis_tready(s_axis_tready),
-    .s_axis_tdata(s_axis_tdata),
-    .s_axis_tlast(s_axis_tlast),
+    .s_axis_tvalid(tx_white_tvalid),
+    .s_axis_tready(tx_white_tready),
+    .s_axis_tdata(tx_white_tdata),
+    .s_axis_tlast(tx_white_tlast),
     .m_axis_tvalid(tx_sym_tvalid),
     .m_axis_tready(tx_sym_tready),
     .m_axis_tdata(tx_sym_tdata),
@@ -251,7 +280,7 @@ fieldmesh_qpsk_byte_sync byte_sync (
     .search_drop_count(sync_search_drop_count)
 );
 
-fieldmesh_axis_header_framer header_framer (
+fieldmesh_axis_payload_whitener rx_dewhitener (
     .clk(clk),
     .rst(rst),
     .enable(enable),
@@ -259,6 +288,24 @@ fieldmesh_axis_header_framer header_framer (
     .s_axis_tready(sync_tready),
     .s_axis_tdata(sync_tdata),
     .s_axis_tlast(sync_tlast),
+    .m_axis_tvalid(rx_dewhite_tvalid),
+    .m_axis_tready(rx_dewhite_tready),
+    .m_axis_tdata(rx_dewhite_tdata),
+    .m_axis_tlast(rx_dewhite_tlast),
+    .input_byte_count(),
+    .output_byte_count(),
+    .whitened_byte_count(rx_dewhite_count),
+    .packet_count()
+);
+
+fieldmesh_axis_header_framer header_framer (
+    .clk(clk),
+    .rst(rst),
+    .enable(enable),
+    .s_axis_tvalid(rx_dewhite_tvalid),
+    .s_axis_tready(rx_dewhite_tready),
+    .s_axis_tdata(rx_dewhite_tdata),
+    .s_axis_tlast(rx_dewhite_tlast),
     .m_axis_tvalid(m_axis_tvalid),
     .m_axis_tready(m_axis_tready),
     .m_axis_tdata(m_axis_tdata),
@@ -446,6 +493,8 @@ initial begin
     end
 
     if (tx_byte_count != 32'd36) fail("TX symbolizer byte count mismatch");
+    if (tx_white_count != 32'd34) fail("TX whitener byte count mismatch");
+    if (rx_dewhite_count != 32'd34) fail("RX dewhitener byte count mismatch");
     if (tx_packet_count != 32'd1) fail("TX symbolizer packet count mismatch");
     if (tx_fir_tail_count != 32'd8) fail("TX FIR did not flush the expected packet tail");
     if (rx_fir_tail_count != 32'd0) fail("RX FIR emitted tail samples on continuous RX stream");

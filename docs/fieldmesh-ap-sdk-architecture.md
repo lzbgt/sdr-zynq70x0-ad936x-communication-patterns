@@ -578,23 +578,27 @@ Stage 2: Board-local service
   handoff and transport report to live sidecar DMA smoke evidence, so the same
   committed frame is checked across adapter intent, board packet DMA, and
   packet-engine IQ recovery. The first PL primitive behind that boundary is
-  `fieldmesh_qpsk_iq_symbolizer`, which prepends the PL acquisition preamble
-  and maps packet bytes to 2x signed QPSK I/Q symbols before
-  `fieldmesh_iq_fir_filter` applies 9-tap PL pulse shaping, without taking
-  ownership of RF tuning, filtering, TX enable, or scheduled launch.
+  `fieldmesh_axis_payload_whitener`, which keeps FieldMesh magic bytes clear
+  for acquisition and whitens the remaining packet bytes before
+  `fieldmesh_qpsk_iq_symbolizer` prepends the PL acquisition preamble and maps
+  packet bytes to 2x signed QPSK I/Q symbols. `fieldmesh_iq_fir_filter` then
+  applies 9-tap PL pulse shaping, without taking ownership of RF tuning,
+  filtering, TX enable, or scheduled launch.
   `fieldmesh_qpsk_iq_demodulator` is the matching RX
   primitive for hard-decision QPSK IQ-to-byte recovery, with
   `fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_rx_fir`,
-  `fieldmesh_qpsk_byte_sync`, and
+  `fieldmesh_qpsk_byte_sync`, `fieldmesh_qpsk_rx_dewhitener`, and
   ping-pong-buffered `fieldmesh_axis_header_framer` now wiring AD9361 RX samples
   back into packet DMA through FPGA logic while correcting byte phase and QPSK
-  quadrant ambiguity from full four-byte preamble plus magic correlation and
-  rejecting bad in-band header CRCs or burst-truncated packets before RX DMA.
+  quadrant ambiguity from full four-byte preamble plus magic correlation,
+  dewhitening payload bytes in PL, and rejecting bad in-band header CRCs or
+  burst-truncated packets before RX DMA.
   `fieldmesh_iq_tx_guard`
   is the next TX boundary; it only
   admits symbolized IQ when TX is explicitly enabled, armed, and in-slot. The
-  `--rf-engine-overlay` copied-HDL gate now proves the symbolizer, RX ADC
-  packer, RX FIR, QPSK demodulator, header framer, TX guard, async FIFOs, and DAC-domain
+  `--rf-engine-overlay` copied-HDL gate now proves the TX whitener, symbolizer,
+  RX ADC packer, RX FIR, QPSK demodulator, RX dewhitener, header framer, TX
+  guard, async FIFOs, and DAC-domain
   source driver are BD-visible behind the sidecar DMA/bridge path, with guard
   control/status wired through the existing
   sidecar control window while the source driver selector also lives in that

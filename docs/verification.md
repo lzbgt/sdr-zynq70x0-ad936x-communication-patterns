@@ -2756,17 +2756,20 @@ counting.
 The Vivado overlay patcher now has an opt-in `--rf-engine-overlay` mode. It
 implies the sidecar DMA overlay, removes the packet-loopback shortcut, routes
 TX packet DMA through `fieldmesh_firmware_axis_dma_endpoint`, feeds the
-descriptor-validated egress stream into `fieldmesh_qpsk_symbolizer/s_axis_*`,
-configures that symbolizer to prepend the four-byte acquisition preamble, feeds
-generated IQ into
+descriptor-validated egress stream into `fieldmesh_qpsk_tx_whitener`, leaves the
+two FieldMesh magic bytes unmodified, XOR-whitens the remaining payload bytes in
+PL before `fieldmesh_qpsk_symbolizer/s_axis_*`, configures that symbolizer to
+prepend the four-byte acquisition preamble, feeds generated IQ into
 `fieldmesh_iq_tx_guard`, crosses guarded IQ through
 `fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and feeds
 `fieldmesh_iq_dac_driver`. The same overlay now routes AD9361 RX decimator
 samples through `fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_rx_fir`,
 `fieldmesh_qpsk_symbol_timing_recovery`, `fieldmesh_qpsk_demodulator`,
-`fieldmesh_qpsk_byte_sync`, `fieldmesh_axis_header_framer`, and
-`fieldmesh_axis_async_fifo` before RX DMA, so RX packet recovery is an FPGA path
-instead of a packet-observability loopback. The RX header framer also feeds
+`fieldmesh_qpsk_byte_sync`, `fieldmesh_qpsk_rx_dewhitener`,
+`fieldmesh_axis_header_framer`, and `fieldmesh_axis_async_fifo` before RX DMA,
+so RX packet recovery is an FPGA path instead of a packet-observability
+loopback. The RX dewhitener applies the same PL XOR sequence after the magic
+bytes, before CRC/header validation. The RX header framer also feeds
 valid completion, bad-header resync, CRC/drop, and truncation events back into
 byte-sync `clear_lock`, forcing continuous live ADC streams to reacquire the
 next RF burst from the acquisition preamble rather than relying on test-burst
@@ -2780,7 +2783,8 @@ selected for AD936x TX.
 `tools/check_fieldmesh_rf_engine_overlay_vivado.sh` validated that
 copied Z203 and Z103 HDL trees generate block designs with
 `fieldmesh_firmware_axis_dma_endpoint`, `fieldmesh_qpsk_symbolizer`,
-`fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_rx_fir`,
+`fieldmesh_qpsk_tx_whitener`, `fieldmesh_iq_adc_axis_source`,
+`fieldmesh_qpsk_rx_fir`, `fieldmesh_qpsk_rx_dewhitener`,
 `fieldmesh_qpsk_demodulator`,
 `fieldmesh_qpsk_byte_sync`, `fieldmesh_axis_header_framer`,
 `fieldmesh_iq_tx_guard`, and `fieldmesh_axis_async_fifo` present, address

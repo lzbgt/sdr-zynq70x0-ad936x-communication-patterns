@@ -476,10 +476,13 @@ The first non-transmitting RF packet-engine overlay is a separate opt-in mode:
 With `--rf-engine-overlay`, the patcher implies the control, bridge, and DMA
 overlays but replaces the packet loopback with a TX/RX packet-engine path:
 TX packet DMA feeds `fieldmesh_firmware_axis_dma_endpoint`, and its
-descriptor-validated egress stream feeds `fieldmesh_qpsk_symbolizer/s_axis_*`,
-and the symbolizer is configured for the four-byte `55 aa 55 aa` acquisition
-preamble before packet magic. Its output then feeds `fieldmesh_qpsk_tx_fir`,
-the dedicated 9-tap PL pulse-shaping FIR, before the TX guard.
+descriptor-validated egress stream feeds `fieldmesh_qpsk_tx_whitener`.
+The PL whitener leaves the two FieldMesh magic bytes unchanged for acquisition
+and XOR-whitens the remaining packet bytes before
+`fieldmesh_qpsk_symbolizer/s_axis_*`. The symbolizer is configured for the
+four-byte `55 aa 55 aa` acquisition preamble before packet magic. Its output
+then feeds `fieldmesh_qpsk_tx_fir`, the dedicated 9-tap PL pulse-shaping FIR,
+before the TX guard.
 The symbolizer's IQ output feeds
 `fieldmesh_iq_tx_guard`; its arming, schedule, and status pins are wired to the
 existing `fieldmesh_ctrl` AXI-lite window at the RF TX guard register range.
@@ -490,11 +493,13 @@ and `fieldmesh_iq_dac_driver` so the next boundary is already in the AD9361 DAC
 clock domain. On RX, AD9361 decimator I/Q samples feed
 `fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_rx_fir`,
 `fieldmesh_qpsk_symbol_timing_recovery`, `fieldmesh_qpsk_demodulator`,
-`fieldmesh_qpsk_byte_sync`, and `fieldmesh_rx_header_framer`; the restored byte
-packet stream crosses `fieldmesh_iq_rx_cdc` into the sidecar DMA clock domain
-and then into RX DMA. The HDL regression suite includes an end-to-end PL-only
-QPSK packet-chain simulation across this TX FIR, RX FIR, timing recovery,
-demodulation, preamble/magic byte sync, and CRC/header framing path.
+`fieldmesh_qpsk_byte_sync`, `fieldmesh_qpsk_rx_dewhitener`, and
+`fieldmesh_rx_header_framer`; the restored and dewhitened byte packet stream
+crosses `fieldmesh_iq_rx_cdc` into the sidecar DMA clock domain and then into
+RX DMA. The HDL regression suite includes an end-to-end PL-only QPSK
+packet-chain simulation across this TX whitening, TX FIR, RX FIR, timing
+recovery, demodulation, preamble/magic byte sync, RX dewhitening, and
+CRC/header framing path.
 The driver source selector is wired to the sidecar control window and resets to
 vendor pass-through in this overlay, so FieldMesh does not drive the DAC
 datapath, open IIO buffers, tune RF, or start hardware transmission.

@@ -297,8 +297,10 @@ IRQ `ps-11 mb-11`. Its opt-in `--bridge-overlay` mode appends
 `fieldmesh_sidecar_axis_bridge` as `fieldmesh_axis_bridge`, clocks/resets it,
 and parks the byte-pipe pins until real packet DMA is added.
 Its opt-in `--rf-engine-overlay` mode implies the sidecar DMA overlay, routes
-the firmware-DMA egress stream into `fieldmesh_qpsk_symbolizer`, pulse-shapes
-generated IQ through the PL `fieldmesh_qpsk_tx_fir`, then gates it through
+the firmware-DMA egress stream into `fieldmesh_qpsk_tx_whitener`, leaves the
+two FieldMesh magic bytes clear, XOR-whitens the remaining packet bytes in PL,
+then feeds `fieldmesh_qpsk_symbolizer`, pulse-shapes generated IQ through the
+PL `fieldmesh_qpsk_tx_fir`, then gates it through
 `fieldmesh_iq_tx_guard`, crosses it through
 `fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and feeds
 `fieldmesh_iq_dac_driver` while its source selector resets to vendor
@@ -308,13 +310,14 @@ midpoint shaping disabled because the dedicated PL FIR owns TX pulse shaping in
 the RF-engine overlay. The same overlay routes AD9361
 RX decimator samples through `fieldmesh_iq_adc_axis_source`,
 `fieldmesh_qpsk_demodulator`, `fieldmesh_qpsk_byte_sync`,
-ping-pong-buffered `fieldmesh_axis_header_framer`, and
+`fieldmesh_qpsk_rx_dewhitener`, ping-pong-buffered
+`fieldmesh_axis_header_framer`, and
 `fieldmesh_iq_rx_cdc` before RX DMA. The header framer validates the in-band
-CRC-16 and rejects burst-truncated packets before a recovered QPSK packet can
-reach RX DMA. The byte synchronizer uses full four-byte preamble plus magic
-correlation to correct QPSK symbol-byte phase and 90-degree quadrant ambiguity
-in PL before the framer sees recovered bytes, then drops lock after packet-tail
-flush so the next RF burst must
+CRC-16 after PL dewhitening and rejects burst-truncated packets before a
+recovered QPSK packet can reach RX DMA. The byte synchronizer uses full
+four-byte preamble plus magic correlation to correct QPSK symbol-byte phase and
+90-degree quadrant ambiguity in PL before the dewhitener/framer sees recovered
+bytes, then drops lock after packet-tail flush so the next RF burst must
 reacquire from its own preamble.
 `tools/check_fieldmesh_control_overlay_vivado.sh` and
 `tools/check_fieldmesh_bridge_overlay_vivado.sh`,
@@ -606,7 +609,7 @@ control bit only when the C-decoded status says `stop_write_needed=true`.
     packet-DMA overlay now routes that adapter through
     `fieldmesh_firmware_axis_dma_endpoint`; the RF-engine overlay now consumes
     the same firmware endpoint through a byte-wide egress broadcast feeding RX
-    DMA and the QPSK symbolizer.
+    DMA and the PL payload whitener before the QPSK symbolizer.
 15. Generate and compile the matching sidecar devicetree fragment, and keep the
     userspace `dt-scan` preflight green before touching sidecar registers.
 16. Integrate the fragment only with a matching FieldMesh bitstream, then run

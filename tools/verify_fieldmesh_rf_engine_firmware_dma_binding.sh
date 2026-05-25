@@ -16,11 +16,14 @@ qpsk_symbolizer = (repo / "rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v").read_t
 iq_fir = (repo / "rtl/fieldmesh/fieldmesh_iq_fir_filter.v").read_text(encoding="utf-8")
 qpsk_timing = (repo / "rtl/fieldmesh/fieldmesh_qpsk_symbol_timing_recovery.v").read_text(encoding="utf-8")
 byte_sync = (repo / "rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v").read_text(encoding="utf-8")
+whitener = (repo / "rtl/fieldmesh/fieldmesh_axis_payload_whitener.v").read_text(encoding="utf-8")
 header_framer = (repo / "rtl/fieldmesh/fieldmesh_axis_header_framer.v").read_text(encoding="utf-8")
 ctrl = (repo / "rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v").read_text(encoding="utf-8")
 
 required_patcher_tokens = [
     "create_bd_cell -type module -reference fieldmesh_firmware_axis_dma_endpoint fieldmesh_fw_dma_endpoint",
+    "create_bd_cell -type module -reference fieldmesh_axis_payload_whitener fieldmesh_qpsk_tx_whitener",
+    "set_property -dict [list CONFIG.ENABLE_WHITENING {1} CONFIG.PASSTHROUGH_BYTES {2}] [get_bd_cells fieldmesh_qpsk_tx_whitener]",
     "create_bd_cell -type module -reference fieldmesh_qpsk_iq_symbolizer fieldmesh_qpsk_symbolizer",
     "set_property -dict [list CONFIG.PREAMBLE_BYTES {4} CONFIG.SAMPLES_PER_SYMBOL {2} CONFIG.PULSE_SHAPING {0}] [get_bd_cells fieldmesh_qpsk_symbolizer]",
     "create_bd_cell -type module -reference fieldmesh_iq_fir_filter fieldmesh_qpsk_tx_fir",
@@ -31,6 +34,8 @@ required_patcher_tokens = [
     "set_property -dict [list CONFIG.OVERSAMPLE_FACTOR {2}] [get_bd_cells fieldmesh_qpsk_timing_recovery]",
     "create_bd_cell -type module -reference fieldmesh_qpsk_iq_demodulator fieldmesh_qpsk_demodulator",
     "create_bd_cell -type module -reference fieldmesh_qpsk_byte_sync fieldmesh_qpsk_byte_sync",
+    "create_bd_cell -type module -reference fieldmesh_axis_payload_whitener fieldmesh_qpsk_rx_dewhitener",
+    "set_property -dict [list CONFIG.ENABLE_WHITENING {1} CONFIG.PASSTHROUGH_BYTES {2}] [get_bd_cells fieldmesh_qpsk_rx_dewhitener]",
     "create_bd_cell -type module -reference fieldmesh_axis_header_framer fieldmesh_rx_header_framer",
     "create_bd_cell -type module -reference fieldmesh_axis_async_fifo fieldmesh_iq_rx_cdc",
     "ad_connect fieldmesh_axis16_adapter/m_axis8 fieldmesh_fw_dma_endpoint/s_tx_dma",
@@ -39,7 +44,8 @@ required_patcher_tokens = [
     "ad_connect fieldmesh_ctrl/fw_dma_retry_budget fieldmesh_fw_dma_endpoint/retry_budget",
     "ad_connect fieldmesh_ctrl/fw_dma_descriptor_flags fieldmesh_fw_dma_endpoint/descriptor_flags",
     "ad_connect fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed",
-    "ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_symbolizer/s_axis",
+    "ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_tx_whitener/s_axis",
+    "ad_connect fieldmesh_qpsk_tx_whitener/m_axis_tdata fieldmesh_qpsk_symbolizer/s_axis_tdata",
     "ad_connect fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_qpsk_tx_fir/s_axis_tdata",
     "ad_connect fieldmesh_qpsk_tx_fir/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata",
     "ad_connect rx_fir_decimator/data_out_0 fieldmesh_iq_adc_source/i_sample",
@@ -58,8 +64,9 @@ required_patcher_tokens = [
     "ad_connect fieldmesh_qpsk_demodulator/phase_update_count fieldmesh_ctrl/qpsk_demod_phase_update_count",
     "ad_connect fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_qpsk_byte_sync/s_axis_tdata",
     "ad_connect fieldmesh_rx_header_framer/sync_clear fieldmesh_qpsk_byte_sync/clear_lock",
-    "ad_connect fieldmesh_qpsk_byte_sync/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata",
-    "ad_connect fieldmesh_qpsk_byte_sync/m_axis_tlast fieldmesh_rx_header_framer/s_axis_tlast",
+    "ad_connect fieldmesh_qpsk_byte_sync/m_axis_tdata fieldmesh_qpsk_rx_dewhitener/s_axis_tdata",
+    "ad_connect fieldmesh_qpsk_rx_dewhitener/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata",
+    "ad_connect fieldmesh_qpsk_rx_dewhitener/m_axis_tlast fieldmesh_rx_header_framer/s_axis_tlast",
     "ad_connect fieldmesh_qpsk_byte_sync/sync_lock_count fieldmesh_ctrl/qpsk_sync_lock_count",
     "ad_connect fieldmesh_qpsk_byte_sync/search_drop_count fieldmesh_ctrl/qpsk_sync_search_drop_count",
     "ad_connect fieldmesh_rx_header_framer/crc_error_count fieldmesh_ctrl/qpsk_rx_crc_error_count",
@@ -94,22 +101,27 @@ for forbidden in (
 required_checker_tokens = [
     "fieldmesh_fw_dma_endpoint",
     "fieldmesh_iq_adc_source",
+    "fieldmesh_qpsk_tx_whitener",
     "fieldmesh_qpsk_rx_fir",
     "fieldmesh_qpsk_tx_fir",
     "fieldmesh_qpsk_timing_recovery",
     "fieldmesh_qpsk_demodulator",
     "fieldmesh_qpsk_byte_sync",
+    "fieldmesh_qpsk_rx_dewhitener",
     "fieldmesh_rx_header_framer",
     "fieldmesh_iq_rx_cdc",
     "fieldmesh_qpsk_symbolizer must prepend the four-byte PL acquisition preamble",
     "fieldmesh_qpsk_symbolizer must emit 2x oversampled QPSK symbols for PL phase-weighted matched filtering",
     "fieldmesh_qpsk_symbolizer must keep midpoint shaping disabled because PL FIR owns TX pulse shaping",
+    "must enable PL payload whitening",
+    "must leave FieldMesh magic bytes unwhitened",
     "fieldmesh_qpsk_rx_fir must not emit packet-tail flush samples on the continuous RX stream",
     "fieldmesh_qpsk_timing_recovery must phase-weight matched-filter 2x oversampled QPSK symbols in PL",
     "register pages through 0x23c",
     "fieldmesh_fw_dma_endpoint/m_rx_dma",
     "proc assert_same_intf_net",
-    "{fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_symbolizer/s_axis}",
+    "{fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_tx_whitener/s_axis}",
+    "{fieldmesh_qpsk_tx_whitener/m_axis_tdata fieldmesh_qpsk_symbolizer/s_axis_tdata}",
     "{fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_qpsk_tx_fir/s_axis_tdata}",
     "{fieldmesh_qpsk_tx_fir/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata}",
     "{fieldmesh_iq_rx_cdc/m_axis fieldmesh_axis16_adapter/s_axis8}",
@@ -129,8 +141,9 @@ required_checker_tokens = [
     "assert_same_net fieldmesh_qpsk_demodulator/phase_update_count fieldmesh_ctrl/qpsk_demod_phase_update_count",
     "assert_same_net fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_qpsk_byte_sync/s_axis_tdata",
     "assert_same_net fieldmesh_rx_header_framer/sync_clear fieldmesh_qpsk_byte_sync/clear_lock",
-    "assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata",
-    "assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tlast fieldmesh_rx_header_framer/s_axis_tlast",
+    "assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tdata fieldmesh_qpsk_rx_dewhitener/s_axis_tdata",
+    "assert_same_net fieldmesh_qpsk_rx_dewhitener/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata",
+    "assert_same_net fieldmesh_qpsk_rx_dewhitener/m_axis_tlast fieldmesh_rx_header_framer/s_axis_tlast",
     "assert_same_net fieldmesh_qpsk_byte_sync/sync_lock_count fieldmesh_ctrl/qpsk_sync_lock_count",
     "assert_same_net fieldmesh_qpsk_byte_sync/search_drop_count fieldmesh_ctrl/qpsk_sync_search_drop_count",
     "assert_same_net fieldmesh_rx_header_framer/crc_error_count fieldmesh_ctrl/qpsk_rx_crc_error_count",
@@ -192,6 +205,7 @@ for token in (
 
 for rtl in (
     '"rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v"',
+    '"rtl/fieldmesh/fieldmesh_axis_payload_whitener.v"',
     '"rtl/fieldmesh/fieldmesh_iq_fir_filter.v"',
     '"rtl/fieldmesh/fieldmesh_qpsk_symbol_timing_recovery.v"',
     '"rtl/fieldmesh/fieldmesh_qpsk_iq_demodulator.v"',
@@ -264,6 +278,17 @@ for token in (
 ):
     if token not in qpsk_symbolizer:
         raise SystemExit(f"fieldmesh_qpsk_iq_symbolizer.v missing QPSK preamble token: {token}")
+
+for token in (
+    "module fieldmesh_axis_payload_whitener",
+    "parameter integer PASSTHROUGH_BYTES",
+    "parameter [7:0] SCRAMBLE_SEED",
+    "function [7:0] lfsr_next_byte",
+    "byte_whitened",
+    "whitened_byte_count",
+):
+    if token not in whitener:
+        raise SystemExit(f"fieldmesh_axis_payload_whitener.v missing payload whitening token: {token}")
 
 for token in (
     "module fieldmesh_iq_fir_filter",

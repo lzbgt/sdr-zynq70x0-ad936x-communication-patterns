@@ -397,10 +397,11 @@ streaming descriptor-validated RX packets back to RX DMA. The opt-in DMA
 overlay now instantiates that wrapper with `AUTO_EGRESS=1` between the ADI
 packet DMA pair and the 16-to-8 adapter. The RF-engine overlay now uses the
 same firmware-DMA endpoint instead of the older bridge-fed packet path:
-descriptor-validated egress bytes are broadcast to RX DMA and the pulse-shaped
-QPSK TX chain (`fieldmesh_qpsk_symbolizer` plus `fieldmesh_qpsk_tx_fir`), while
-firmware-DMA controls still reset off and require explicit software arming
-before RF-symbolizer ingress can move. The
+descriptor-validated egress bytes are broadcast to RX DMA and the PL-whitened,
+pulse-shaped QPSK TX chain (`fieldmesh_qpsk_tx_whitener`,
+`fieldmesh_qpsk_symbolizer`, and `fieldmesh_qpsk_tx_fir`), while firmware-DMA
+controls still reset off and require explicit software arming before
+RF-symbolizer ingress can move. The
 stats block now keeps
 the fixed counters plus
 `queued` and `selected` words; `selected` is a compact binary status word with

@@ -1486,25 +1486,29 @@ below were later superseded by the current PHY-management two-board gates above:
   assertion now ties that transport report to live sidecar DMA smoke evidence.
   The next step is replacing the modelled packet-engine IQ path with the first
   guarded live sidecar/RF data path. The first synthesizable TX primitive for
-  that path is now `fieldmesh_qpsk_iq_symbolizer`: it prepends the PL
-  acquisition preamble and maps packet bytes into 2x signed QPSK I/Q symbols;
-  `fieldmesh_iq_fir_filter` then applies 9-tap PL pulse shaping while keeping
-  tuning, filtering, TX enable, and scheduled launch outside the primitive.
+  that path is now `fieldmesh_axis_payload_whitener`: it leaves the FieldMesh
+  magic bytes clear for acquisition and whitens the remaining packet bytes
+  before `fieldmesh_qpsk_iq_symbolizer` prepends the PL acquisition preamble and
+  maps packet bytes into 2x signed QPSK I/Q symbols; `fieldmesh_iq_fir_filter`
+  then applies 9-tap PL pulse shaping while keeping tuning, filtering, TX
+  enable, and scheduled launch outside the primitive.
   `fieldmesh_qpsk_iq_demodulator`
   is now the matching hard-decision RX primitive for packet-byte recovery from
   pulse-shaped signed QPSK IQ samples. The RF overlay now also packs AD9361 RX
   decimator samples with `fieldmesh_iq_adc_axis_source`, runs them through a
   no-tail `fieldmesh_qpsk_rx_fir` matched FIR before timing recovery, locks
   QPSK byte phase and quadrant rotation from full four-byte preamble plus magic
-  correlation with `fieldmesh_qpsk_byte_sync`, restores packet boundaries with a
+  correlation with `fieldmesh_qpsk_byte_sync`, dewhitens payload bytes with
+  `fieldmesh_qpsk_rx_dewhitener`, restores packet boundaries with a
   ping-pong-buffered `fieldmesh_axis_header_framer`, rejects bad header CRCs and
   burst-truncated packets in PL before RX DMA, feeds packet complete/drop/resync
   status back into byte-sync `clear_lock` for live continuous-RX reacquisition,
   backpressures demod bytes during that clear cycle, and crosses recovered
   packets back to RX DMA. The
   `--rf-engine-overlay` Vivado gate now proves the sidecar
-  TX DMA path can feed the QPSK symbolizer and `fieldmesh_iq_tx_guard` while
-  the guarded IQ stream crosses into the AD9361 DAC clock domain through
+  TX DMA path can feed the PL whitener, QPSK symbolizer, and
+  `fieldmesh_iq_tx_guard` while the guarded IQ stream crosses into the AD9361
+  DAC clock domain through
   `fieldmesh_axis_async_fifo` and reaches a reset-off sidecar-controlled
   `fieldmesh_iq_dac_driver` inserted between `tx_upack` and
   `tx_fir_interpolator`. The guard's arming, schedule, and counter/status pins

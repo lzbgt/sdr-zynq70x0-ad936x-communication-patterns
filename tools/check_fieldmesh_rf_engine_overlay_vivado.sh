@@ -82,6 +82,7 @@ foreach cell {
   fieldmesh_fw_dma_endpoint
   fieldmesh_tx_dma
   fieldmesh_rx_dma
+  fieldmesh_qpsk_tx_whitener
   fieldmesh_qpsk_symbolizer
   fieldmesh_qpsk_tx_fir
   fieldmesh_iq_tx_guard
@@ -92,6 +93,7 @@ foreach cell {
   fieldmesh_qpsk_timing_recovery
   fieldmesh_qpsk_demodulator
   fieldmesh_qpsk_byte_sync
+  fieldmesh_qpsk_rx_dewhitener
   fieldmesh_rx_header_framer
   fieldmesh_iq_rx_cdc
 } {
@@ -116,6 +118,16 @@ if {"\$qpsk_samples_per_symbol" ne "2"} {
 set qpsk_pulse_shaping [get_property CONFIG.PULSE_SHAPING [get_bd_cells fieldmesh_qpsk_symbolizer]]
 if {"\$qpsk_pulse_shaping" ne "0"} {
   error "fieldmesh_qpsk_symbolizer must keep midpoint shaping disabled because PL FIR owns TX pulse shaping"
+}
+foreach whitener_cell {fieldmesh_qpsk_tx_whitener fieldmesh_qpsk_rx_dewhitener} {
+  set whitening_enabled [get_property CONFIG.ENABLE_WHITENING [get_bd_cells \$whitener_cell]]
+  if {"\$whitening_enabled" ne "1"} {
+    error "\$whitener_cell must enable PL payload whitening"
+  }
+  set passthrough_bytes [get_property CONFIG.PASSTHROUGH_BYTES [get_bd_cells \$whitener_cell]]
+  if {"\$passthrough_bytes" ne "2"} {
+    error "\$whitener_cell must leave FieldMesh magic bytes unwhitened"
+  }
 }
 set qpsk_rx_fir_tail_samples [get_property CONFIG.TAIL_SAMPLES [get_bd_cells fieldmesh_qpsk_rx_fir]]
 if {"\$qpsk_rx_fir_tail_samples" ne "0"} {
@@ -455,10 +467,10 @@ foreach intf {
   fieldmesh_axis16_adapter/m_axis8
   fieldmesh_fw_dma_endpoint/s_tx_dma
   fieldmesh_fw_dma_endpoint/m_rx_dma
+  fieldmesh_qpsk_tx_whitener/s_axis
   fieldmesh_axis16_adapter/s_axis8
   fieldmesh_axis16_adapter/m_axis16
   fieldmesh_rx_dma/s_axis
-  fieldmesh_qpsk_symbolizer/s_axis
   fieldmesh_iq_rx_cdc/m_axis
 } {
   if {[llength [get_bd_intf_pins -quiet \$intf]] != 1} {
@@ -552,13 +564,17 @@ foreach seg {
 }
 
 foreach pair {
-  {fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_symbolizer/s_axis}
+  {fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_tx_whitener/s_axis}
   {fieldmesh_iq_rx_cdc/m_axis fieldmesh_axis16_adapter/s_axis8}
 } {
   assert_same_intf_net [lindex \$pair 0] [lindex \$pair 1]
 }
 
 foreach pair {
+  {fieldmesh_qpsk_tx_whitener/m_axis_tvalid fieldmesh_qpsk_symbolizer/s_axis_tvalid}
+  {fieldmesh_qpsk_tx_whitener/m_axis_tready fieldmesh_qpsk_symbolizer/s_axis_tready}
+  {fieldmesh_qpsk_tx_whitener/m_axis_tdata fieldmesh_qpsk_symbolizer/s_axis_tdata}
+  {fieldmesh_qpsk_tx_whitener/m_axis_tlast fieldmesh_qpsk_symbolizer/s_axis_tlast}
   {fieldmesh_qpsk_symbolizer/m_axis_tvalid fieldmesh_qpsk_tx_fir/s_axis_tvalid}
   {fieldmesh_qpsk_symbolizer/m_axis_tready fieldmesh_qpsk_tx_fir/s_axis_tready}
   {fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_qpsk_tx_fir/s_axis_tdata}
@@ -656,10 +672,14 @@ assert_same_net fieldmesh_qpsk_byte_sync/sync_lock_count fieldmesh_ctrl/qpsk_syn
 assert_same_net fieldmesh_qpsk_byte_sync/sync_slip_count fieldmesh_ctrl/qpsk_sync_slip_count
 assert_same_net fieldmesh_qpsk_byte_sync/sync_rotation_count fieldmesh_ctrl/qpsk_sync_rotation_count
 assert_same_net fieldmesh_qpsk_byte_sync/search_drop_count fieldmesh_ctrl/qpsk_sync_search_drop_count
-assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tvalid fieldmesh_rx_header_framer/s_axis_tvalid
-assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tready fieldmesh_rx_header_framer/s_axis_tready
-assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata
-assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tlast fieldmesh_rx_header_framer/s_axis_tlast
+assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tvalid fieldmesh_qpsk_rx_dewhitener/s_axis_tvalid
+assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tready fieldmesh_qpsk_rx_dewhitener/s_axis_tready
+assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tdata fieldmesh_qpsk_rx_dewhitener/s_axis_tdata
+assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tlast fieldmesh_qpsk_rx_dewhitener/s_axis_tlast
+assert_same_net fieldmesh_qpsk_rx_dewhitener/m_axis_tvalid fieldmesh_rx_header_framer/s_axis_tvalid
+assert_same_net fieldmesh_qpsk_rx_dewhitener/m_axis_tready fieldmesh_rx_header_framer/s_axis_tready
+assert_same_net fieldmesh_qpsk_rx_dewhitener/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata
+assert_same_net fieldmesh_qpsk_rx_dewhitener/m_axis_tlast fieldmesh_rx_header_framer/s_axis_tlast
 assert_same_net fieldmesh_rx_header_framer/packet_count fieldmesh_ctrl/qpsk_rx_packet_count
 assert_same_net fieldmesh_rx_header_framer/byte_count fieldmesh_ctrl/qpsk_rx_byte_count
 assert_same_net fieldmesh_rx_header_framer/drop_count fieldmesh_ctrl/qpsk_rx_drop_count
