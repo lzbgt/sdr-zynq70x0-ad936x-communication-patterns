@@ -203,6 +203,9 @@ packet, and fault counters for the firmware boundary.
 `fieldmesh_axis_header_framer.v` restores RX packet TLAST from the FieldMesh
 in-band header and payload length before RX DMA, using two packet banks so one
 packet can drain toward RX DMA while the next demodulated packet is captured.
+It also checks the in-band header CRC-16 before admitting a recovered packet to
+RX DMA, so malformed or corrupted demodulator output is dropped inside PL with
+CRC/drop/fault counters instead of entering the host-visible packet stream.
 `fieldmesh_iq_tx_guard.v` is the post-symbolizer guard: it only admits IQ samples when TX is enabled, armed, and
 in the allowed schedule slot, and the copied RF-engine overlay wires its
 control and status pins to the sidecar AXI-lite window while resetting it

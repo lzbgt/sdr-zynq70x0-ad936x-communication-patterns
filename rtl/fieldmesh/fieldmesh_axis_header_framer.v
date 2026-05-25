@@ -4,7 +4,9 @@
 // over the air. This primitive rebuilds packet boundaries from the fixed
 // FieldMesh in-band header and payload length, then emits a byte AXI-stream with
 // TLAST restored for the RX DMA path. Two packet banks let one packet drain to
-// RX DMA while the next packet is captured from the demodulator.
+// RX DMA while the next packet is captured from the demodulator. Header bytes
+// 30..31 carry a little-endian CRC-16/CCITT-FALSE over header bytes 0..29 and
+// all payload bytes; bad packets are rejected before RX DMA.
 
 `timescale 1ns/1ps
 
@@ -28,6 +30,7 @@ module fieldmesh_axis_header_framer #(
     output reg [31:0] packet_count,
     output reg [31:0] byte_count,
     output reg [31:0] drop_count,
+    output reg [31:0] crc_error_count,
     output reg [31:0] resync_count,
     output reg        fault
 );
@@ -37,6 +40,24 @@ localparam [7:0] FM_MAGIC_1 = 8'h46;
 localparam [7:0] FM_VERSION = 8'h01;
 localparam [7:0] FM_HEADER_LEN = 8'h20;
 
+function [15:0] crc16_ccitt_byte;
+    input [15:0] crc_in;
+    input [7:0] data;
+    reg [15:0] crc;
+    integer bit_i;
+    begin
+        crc = crc_in ^ {data, 8'h00};
+        for (bit_i = 0; bit_i < 8; bit_i = bit_i + 1) begin
+            if (crc[15]) begin
+                crc = (crc << 1) ^ 16'h1021;
+            end else begin
+                crc = crc << 1;
+            end
+        end
+        crc16_ccitt_byte = crc;
+    end
+endfunction
+
 reg [7:0] packet_mem0 [0:MAX_PACKET_BYTES-1];
 reg [7:0] packet_mem1 [0:MAX_PACKET_BYTES-1];
 reg [15:0] rx_index;
@@ -45,6 +66,8 @@ reg [15:0] emit_len;
 reg [15:0] bank_len0;
 reg [15:0] bank_len1;
 reg [15:0] payload_len;
+reg [15:0] crc16_state;
+reg [15:0] expected_crc16;
 reg [7:0] traffic_class;
 reg packet_bad;
 reg emit_active;
@@ -75,13 +98,25 @@ wire total_len_valid =
 wire packet_complete = rx_index >= 16'd31 && (rx_index + 16'd1) == packet_total_len;
 wire header_class_valid =
     ((rx_index == 16'd14) ? s_axis_tdata : traffic_class) <= 8'd4;
+wire crc16_include_byte = rx_index < 16'd30 || rx_index >= 16'd32;
+wire [15:0] crc16_next =
+    crc16_include_byte ? crc16_ccitt_byte(crc16_state, s_axis_tdata) :
+    crc16_state;
+wire [15:0] expected_crc16_next =
+    (rx_index == 16'd30) ? {expected_crc16[15:8], s_axis_tdata} :
+    (rx_index == 16'd31) ? {s_axis_tdata, expected_crc16[7:0]} :
+    expected_crc16;
+wire crc16_ok = crc16_next == expected_crc16_next;
 wire current_header_bad =
     (rx_index == 16'd0 && s_axis_tdata != FM_MAGIC_0) ||
     (rx_index == 16'd1 && s_axis_tdata != FM_MAGIC_1) ||
     (rx_index == 16'd2 && s_axis_tdata != FM_VERSION) ||
     (rx_index == 16'd3 && s_axis_tdata != FM_HEADER_LEN) ||
     (rx_index >= 16'd31 && !total_len_valid);
-wire packet_valid = !packet_bad && !current_header_bad && header_class_valid && total_len_valid;
+wire packet_shape_valid = !packet_bad && !current_header_bad &&
+    header_class_valid && total_len_valid;
+wire packet_valid = packet_shape_valid && crc16_ok;
+wire packet_crc_bad = packet_complete && packet_shape_valid && !crc16_ok;
 
 assign s_axis_tready = enable && !capture_bank_busy;
 assign m_axis_tvalid = enable && emit_active;
@@ -98,6 +133,8 @@ always @(posedge clk) begin
         bank_len0 <= 16'd0;
         bank_len1 <= 16'd0;
         payload_len <= 16'd0;
+        crc16_state <= 16'hffff;
+        expected_crc16 <= 16'd0;
         traffic_class <= 8'd0;
         packet_bad <= 1'b0;
         emit_active <= 1'b0;
@@ -107,6 +144,7 @@ always @(posedge clk) begin
         packet_count <= 32'd0;
         byte_count <= 32'd0;
         drop_count <= 32'd0;
+        crc_error_count <= 32'd0;
         resync_count <= 32'd0;
         fault <= 1'b0;
     end else begin
@@ -134,6 +172,8 @@ always @(posedge clk) begin
                     16'd14: traffic_class <= s_axis_tdata;
                     16'd28: payload_len[7:0] <= s_axis_tdata;
                     16'd29: payload_len[15:8] <= s_axis_tdata;
+                    16'd30: expected_crc16[7:0] <= s_axis_tdata;
+                    16'd31: expected_crc16[15:8] <= s_axis_tdata;
                     default: begin
                     end
                 endcase
@@ -152,10 +192,15 @@ always @(posedge clk) begin
                         end
                     end else begin
                         drop_count <= drop_count + 1'b1;
+                        if (packet_crc_bad) begin
+                            crc_error_count <= crc_error_count + 1'b1;
+                        end
                         fault <= 1'b1;
                     end
                     rx_index <= 16'd0;
                     payload_len <= 16'd0;
+                    crc16_state <= 16'hffff;
+                    expected_crc16 <= 16'd0;
                     traffic_class <= 8'd0;
                     packet_bad <= 1'b0;
                 end else if (current_header_bad || !rx_index_in_range) begin
@@ -163,9 +208,13 @@ always @(posedge clk) begin
                     fault <= 1'b1;
                     rx_index <= 16'd0;
                     payload_len <= 16'd0;
+                    crc16_state <= 16'hffff;
+                    expected_crc16 <= 16'd0;
                     traffic_class <= 8'd0;
                     packet_bad <= 1'b0;
                 end else begin
+                    crc16_state <= crc16_next;
+                    expected_crc16 <= expected_crc16_next;
                     packet_bad <= packet_bad || current_header_bad || !rx_index_in_range;
                     rx_index <= rx_index + 1'b1;
                 end

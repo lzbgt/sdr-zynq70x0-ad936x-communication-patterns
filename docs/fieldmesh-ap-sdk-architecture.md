@@ -584,7 +584,8 @@ Stage 2: Board-local service
   primitive for hard-decision QPSK IQ-to-byte recovery, with
   `fieldmesh_iq_adc_axis_source` and ping-pong-buffered
   `fieldmesh_axis_header_framer` now wiring AD9361 RX samples back into packet
-  DMA through FPGA logic. `fieldmesh_iq_tx_guard`
+  DMA through FPGA logic while rejecting bad in-band header CRCs before RX DMA.
+  `fieldmesh_iq_tx_guard`
   is the next TX boundary; it only
   admits symbolized IQ when TX is explicitly enabled, armed, and in-slot. The
   `--rf-engine-overlay` copied-HDL gate now proves the symbolizer, RX ADC
