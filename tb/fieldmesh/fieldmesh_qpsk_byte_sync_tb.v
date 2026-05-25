@@ -123,10 +123,28 @@ end
 initial begin
     apply_reset();
 
-    // A one-QPSK-symbol slip turns aligned bytes 55 aa 4d 46 a5 5a into these
-    // raw bytes, with two leading garbage bits and one trailing pad pair. The
-    // synchronizer must correlate on the preamble before admitting magic bytes.
+    // A two-byte prefix plus magic is not enough to lock. The RX acquisition
+    // path must see the full 55 aa 55 aa preamble before admitting magic bytes.
+    send_raw_byte(8'h55);
+    send_raw_byte(8'haa);
+    send_raw_byte(8'h4d);
+    send_raw_byte(8'h46);
+    send_raw_byte(8'ha5);
+    send_raw_byte(8'h5a);
+    repeat (4) @(posedge clk);
+
+    if (sync_locked) fail("byte synchronizer locked without full preamble");
+    if (out_count != 0) fail("byte synchronizer emitted bytes without full preamble");
+
+    apply_reset();
+
+    // A one-QPSK-symbol slip turns aligned bytes 55 aa 55 aa 4d 46 a5 5a into
+    // these raw bytes, with two leading garbage bits and one trailing pad pair.
+    // The synchronizer must correlate on the full preamble before admitting
+    // magic bytes.
     send_raw_byte(8'h15);
+    send_raw_byte(8'h6a);
+    send_raw_byte(8'h95);
     send_raw_byte(8'h6a);
     send_raw_byte(8'h93);
     send_raw_byte(8'h51);
@@ -161,6 +179,8 @@ initial begin
     // A fixed 90-degree QPSK quadrant ambiguity rotates each recovered symbol
     // pair. The synchronizer should find the magic with rotation correction and
     // emit the original bytes before the packet framer validates CRC.
+    send_raw_byte(rotate_byte(8'h55, 2'd3));
+    send_raw_byte(rotate_byte(8'haa, 2'd3));
     send_raw_byte(rotate_byte(8'h55, 2'd3));
     send_raw_byte(rotate_byte(8'haa, 2'd3));
     send_raw_byte(rotate_byte(8'h4d, 2'd3));

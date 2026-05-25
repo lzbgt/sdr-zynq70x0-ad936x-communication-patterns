@@ -2717,9 +2717,9 @@ fabricated TLAST, backpressure stalls, and partial I/Q-pair accounting.
 `rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v` with
 `tb/fieldmesh/fieldmesh_qpsk_byte_sync_tb.v` adds PL byte-phase synchronization
 after QPSK demodulation. The test covers one-symbol-slip recovery from the
-FieldMesh acquisition preamble plus magic bytes, 90-degree QPSK
-quadrant-ambiguity correction, lock/slip/rotation counters, aligned output, and
-output backpressure.
+full four-byte FieldMesh acquisition preamble plus magic bytes, rejection of a
+short prefix plus magic, 90-degree QPSK quadrant-ambiguity correction,
+lock/slip/rotation counters, aligned output, and output backpressure.
 `rtl/fieldmesh/fieldmesh_axis_header_framer.v` with
 `tb/fieldmesh/fieldmesh_axis_header_framer_tb.v` restores packet TLAST from the
 FieldMesh in-band header/payload length after QPSK demodulation. The test covers

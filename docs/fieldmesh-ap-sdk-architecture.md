@@ -586,8 +586,8 @@ Stage 2: Board-local service
   `fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_byte_sync`, and
   ping-pong-buffered `fieldmesh_axis_header_framer` now wiring AD9361 RX samples
   back into packet DMA through FPGA logic while correcting byte phase and QPSK
-  quadrant ambiguity from preamble-plus-magic correlation and rejecting bad
-  in-band header CRCs before RX DMA.
+  quadrant ambiguity from full four-byte preamble plus magic correlation and
+  rejecting bad in-band header CRCs before RX DMA.
   `fieldmesh_iq_tx_guard`
   is the next TX boundary; it only
   admits symbolized IQ when TX is explicitly enabled, armed, and in-slot. The
