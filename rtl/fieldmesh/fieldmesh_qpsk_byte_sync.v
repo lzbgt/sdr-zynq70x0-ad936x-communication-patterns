@@ -5,7 +5,8 @@
 // QPSK quadrant ambiguity. This primitive keeps the RF RX path in PL by
 // correlating the full FieldMesh acquisition preamble followed by fixed magic
 // bytes across byte phase and quadrant correction, then emitting corrected
-// byte-aligned data for the header framer.
+// byte-aligned data for the header framer. Packet TLAST drops the lock after
+// the final phase-history bytes flush so each RF burst reacquires independently.
 
 `timescale 1ns/1ps
 
@@ -354,6 +355,22 @@ always @(posedge clk) begin
                 flush_count <= 2'd0;
                 flush0_data <= 8'd0;
                 flush0_last <= 1'b0;
+                locked <= 1'b0;
+                phase <= 2'd0;
+                rotation <= 2'd0;
+                raw_count <= 3'd0;
+                rawm4 <= 8'd0;
+                rawm3 <= 8'd0;
+                rawm2 <= 8'd0;
+                rawm1 <= 8'd0;
+                raw0 <= 8'd0;
+                raw1 <= 8'd0;
+                raw_lastm4 <= 1'b0;
+                raw_lastm3 <= 1'b0;
+                raw_lastm2 <= 1'b0;
+                raw_lastm1 <= 1'b0;
+                raw_last0 <= 1'b0;
+                raw_last1 <= 1'b0;
             end
         end
 

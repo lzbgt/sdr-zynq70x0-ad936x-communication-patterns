@@ -438,7 +438,7 @@ initial begin
     if (tx_packet_count != 32'd1) fail("TX symbolizer packet count mismatch");
     if (tx_fir_tail_count != 32'd8) fail("TX FIR did not flush the expected packet tail");
     if (rx_fir_tail_count != 32'd0) fail("RX FIR emitted tail samples on continuous RX stream");
-    if (!sync_locked) fail("QPSK byte sync did not lock");
+    if (sync_locked) fail("QPSK byte sync stayed locked after packet tail flush");
     if (sync_lock_count != 32'd1) fail("QPSK byte sync lock count mismatch");
     if (sync_selected_phase != 2'd0) fail("unexpected QPSK byte phase");
     if (sync_selected_rotation != 2'd0) fail("unexpected QPSK rotation");

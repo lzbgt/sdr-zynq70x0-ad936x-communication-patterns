@@ -27,7 +27,7 @@ wire [31:0] sync_rotation_count;
 wire [31:0] search_drop_count;
 
 integer out_count = 0;
-reg [7:0] out_seen [0:7];
+reg [7:0] out_seen [0:31];
 
 fieldmesh_qpsk_byte_sync dut (
     .clk(clk),
@@ -72,6 +72,21 @@ task send_raw_byte;
         while (!s_axis_tready) @(posedge clk);
         @(negedge clk);
         s_axis_tvalid = 1'b0;
+    end
+endtask
+
+task send_raw_byte_last;
+    input [7:0] value;
+    begin
+        @(negedge clk);
+        s_axis_tdata = value;
+        s_axis_tlast = 1'b1;
+        s_axis_tvalid = 1'b1;
+        @(posedge clk);
+        while (!s_axis_tready) @(posedge clk);
+        @(negedge clk);
+        s_axis_tvalid = 1'b0;
+        s_axis_tlast = 1'b0;
     end
 endtask
 
@@ -200,6 +215,54 @@ initial begin
     if (out_seen[0] != 8'h4d) fail("rotated magic byte 0 mismatch");
     if (out_seen[1] != 8'h46) fail("rotated magic byte 1 mismatch");
     if (out_seen[2] != 8'ha5) fail("rotated payload byte mismatch");
+
+    apply_reset();
+
+    // Packet boundaries are burst boundaries for RF acquisition. After TLAST
+    // and the two-byte phase-history flush, the synchronizer must drop lock and
+    // require the next packet to reacquire its own byte phase and QPSK rotation.
+    send_raw_byte(rotate_byte(8'h55, 2'd3));
+    send_raw_byte(rotate_byte(8'haa, 2'd3));
+    send_raw_byte(rotate_byte(8'h55, 2'd3));
+    send_raw_byte(rotate_byte(8'haa, 2'd3));
+    send_raw_byte(rotate_byte(8'h4d, 2'd3));
+    send_raw_byte(rotate_byte(8'h46, 2'd3));
+    send_raw_byte(rotate_byte(8'ha5, 2'd3));
+    send_raw_byte(rotate_byte(8'h5a, 2'd3));
+    send_raw_byte_last(rotate_byte(8'hc3, 2'd3));
+    repeat (8) @(posedge clk);
+
+    if (sync_locked) fail("byte synchronizer stayed locked after packet tail flush");
+    if (sync_lock_count != 32'd1) fail("first packet reacquire lock count mismatch");
+    if (sync_rotation_count != 32'd1) fail("first packet rotation counter mismatch");
+    if (out_count < 5) fail("first packet did not flush enough bytes");
+    if (out_seen[0] != 8'h4d || out_seen[1] != 8'h46 ||
+        out_seen[2] != 8'ha5 || out_seen[3] != 8'h5a ||
+        out_seen[4] != 8'hc3) begin
+        fail("first packet output mismatch before reacquire");
+    end
+
+    send_raw_byte(8'h55);
+    send_raw_byte(8'haa);
+    send_raw_byte(8'h55);
+    send_raw_byte(8'haa);
+    send_raw_byte(8'h4d);
+    send_raw_byte(8'h46);
+    send_raw_byte(8'h3c);
+    send_raw_byte(8'ha7);
+    send_raw_byte_last(8'h11);
+    repeat (8) @(posedge clk);
+
+    if (sync_locked) fail("byte synchronizer stayed locked after second packet");
+    if (sync_lock_count != 32'd2) fail("second packet did not reacquire");
+    if (selected_rotation != 2'd0) fail("second packet kept stale QPSK rotation");
+    if (sync_rotation_count != 32'd1) fail("second packet changed rotation counter");
+    if (out_count < 10) fail("second packet did not flush enough bytes");
+    if (out_seen[5] != 8'h4d || out_seen[6] != 8'h46 ||
+        out_seen[7] != 8'h3c || out_seen[8] != 8'ha7 ||
+        out_seen[9] != 8'h11) begin
+        fail("second packet output mismatch after reacquire");
+    end
 
     $display("PASS: fieldmesh_qpsk_byte_sync_tb");
     $finish;

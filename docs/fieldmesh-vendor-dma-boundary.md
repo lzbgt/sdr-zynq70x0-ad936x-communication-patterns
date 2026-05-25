@@ -210,10 +210,11 @@ matched in PL while preserving the RX stream as a continuous sample stream.
 four-byte FieldMesh acquisition preamble followed by magic bytes across any
 two-bit QPSK symbol phase and any 90-degree QPSK quadrant ambiguity before
 bytes enter packet framing. It also flushes the two aligned bytes still held in
-its phase history when the demodulated packet ends, so RF RX no longer depends
-on Python/test-glue, reset-time byte alignment, immediately clean magic bytes,
-ideal constellation orientation, or stray post-packet samples to recover the
-packet tail.
+its phase history when the demodulated packet ends, then drops lock so the next
+RF burst must reacquire its own byte phase and constellation quadrant. RF RX no
+longer depends on Python/test-glue, reset-time byte alignment, immediately
+clean magic bytes, ideal constellation orientation, stale lock state, or stray
+post-packet samples to recover the packet tail.
 `fieldmesh_axis_header_framer.v` restores RX packet TLAST from the FieldMesh
 in-band header and payload length before RX DMA, using two packet banks so one
 packet can drain toward RX DMA while the next demodulated packet is captured.

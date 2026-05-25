@@ -313,7 +313,8 @@ ping-pong-buffered `fieldmesh_axis_header_framer`, and
 CRC-16 before a recovered QPSK packet can reach RX DMA. The byte synchronizer
 uses full four-byte preamble plus magic correlation to correct QPSK symbol-byte
 phase and 90-degree quadrant ambiguity in PL before the framer sees recovered
-bytes.
+bytes, then drops lock after packet-tail flush so the next RF burst must
+reacquire from its own preamble.
 `tools/check_fieldmesh_control_overlay_vivado.sh` and
 `tools/check_fieldmesh_bridge_overlay_vivado.sh`,
 `tools/check_fieldmesh_dma_overlay_vivado.sh`, and
