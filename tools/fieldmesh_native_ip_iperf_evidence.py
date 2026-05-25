@@ -903,8 +903,8 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     rf_bandwidth_hz = report.get("iio_bridge_rf_bandwidth_hz")
     if not isinstance(sample_rate_hz, int) or sample_rate_hz <= 0:
         errors.append(f"{label}: IIO bridge sample-rate evidence is missing")
-    if not isinstance(rf_bandwidth_hz, int) or rf_bandwidth_hz < 5_000_000:
-        errors.append(f"{label}: IIO bridge RF bandwidth must be at least 5 MHz")
+    if not isinstance(rf_bandwidth_hz, int) or rf_bandwidth_hz < 10_000_000:
+        errors.append(f"{label}: IIO bridge RF bandwidth must be at least 10 MHz")
     phy_raw = report.get("iio_bridge_phy_raw_bitrate_bps")
     if not isinstance(phy_raw, dict) or sorted(phy_raw) != ["z103_to_z203", "z203_to_z103"]:
         errors.append(f"{label}: IIO bridge PHY raw bitrate evidence must include both directions")

@@ -339,7 +339,7 @@ but `iperf3` still timed out with its data/control sockets established before
 the final result/shutdown exchange completed. A 48-sample/repeat-3 BFSK
 profile lowered many batch times to about 0.8-1.3 seconds but still left the
 raw PHY ceiling too low. The current fast profile is QPSK 1-sample/repeat-1 in
-both directions at 15.36 Msps with a 5 MHz RF bandwidth default, raising the raw
+both directions at 15.36 Msps with a 10 MHz RF bandwidth default, raising the raw
 modem PHY ceiling to 15.36 Mbit/s while keeping 32-sample/repeat-2 as the
 stronger retry profile. The fast path
 is accepted only behind a minimum raw PHY evidence gate that requires

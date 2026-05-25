@@ -85,7 +85,7 @@ Current UI preset examples:
 
 | Preset | Frequency | Bandwidth | Sample rate | Modulation/FEC | Use |
 | --- | --- | --- | --- | --- | --- |
-| Balanced mesh video | 2.4 GHz lab profile | 5 MHz | 15.36 MSPS | QPSK/LDPC | Default control plus video-base testing |
+| Balanced mesh video | 2.4 GHz lab profile | 10 MHz | 15.36 MSPS | QPSK/LDPC | Default control plus video-base testing |
 | Long range robust | sub-GHz legal profile | 1 MHz | 1.92 MSPS | BPSK/convolutional | Lower-rate relay/control and degraded links |
 | High throughput short range | 2.4/5 GHz legal profile | 10 MHz | 15.36 MSPS | OFDM/LDPC | Future high-rate video/enhancement testing |
 

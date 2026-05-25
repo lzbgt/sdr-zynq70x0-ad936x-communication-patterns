@@ -384,7 +384,7 @@ Minimum production gates for native TCP/IP:
   48-sample/repeat-3 modem profile reduced many batch times to roughly 0.8-1.3
   seconds but initially produced an intermittent reverse-path CRC miss under
   load and still did not complete `iperf3`. The current fast profile is
-  QPSK 2x-oversampled symbol-timing-recovered repeat-1 in both directions at 15.36 Msps with a 5 MHz RF
+  QPSK 2x-oversampled symbol-timing-recovered repeat-1 in both directions at 15.36 Msps with a 10 MHz RF
   bandwidth default, raising the raw modem PHY ceiling to 15.36 Mbit/s while
   keeping 32-sample/repeat-2 as the stronger retry profile. Production evidence
   requires at least 12 Mbit/s minimum raw modem PHY rate and fast-primary decode
@@ -467,7 +467,7 @@ Minimum production gates for native TCP/IP:
   `WORKER_XFER`/`TRANSPORT_SERVICE_LOOP_RUN`/`TRANSPORT_SCHEDULER_DRAIN`/`TRANSPORT_AUTONOMOUS_LOOP_RUN`
   submission paths, Python-written transfer request files, or Python helper
   command/status pacing alone. The native-IP IIO HIL default RF bandwidth is
-  now raised to `5 MHz` for the fast native-IP profile; reports
+  now raised to `10 MHz` for the fast native-IP profile; reports
   preserve `sample_rate_hz`, `rf_bandwidth_hz`, and per-direction modem raw
   PHY bitrate so UDP/TCP goodput can be reviewed against the actual RF setting
   instead of an implicit 300 kHz bridge default. The
@@ -520,7 +520,7 @@ Minimum production gates for native TCP/IP:
   profile was still too slow for throughput. The current local C modem profile
   raises the symmetric fast software path: both directions use QPSK with
   `samples_per_symbol=2`, `bit_repeat=1` at the 15.36 Msps native-IP IIO
-  sample rate with 5 MHz RF bandwidth, lifting the raw modem PHY ceiling to
+  sample rate with 10 MHz RF bandwidth, lifting the raw modem PHY ceiling to
   15.36 Mbit/s before MAC/IP overhead. A stronger `samples_per_symbol=32`,
   `bit_repeat=2` retry profile
   remains available after a decode miss. Production reports
