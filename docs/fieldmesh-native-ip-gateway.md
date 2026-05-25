@@ -491,7 +491,11 @@ Minimum production gates for native TCP/IP:
   stronger retry path still available after a decode miss. Production reports
   must now carry the native adaptive modem profile policy proof so a retry
   decode cannot be counted as the fast PHY rate, plus the measured-quality
-  decision proof that separates fast, retry, and hold cases. That profile moved
+  decision proof that separates fast, retry, and hold cases. The live bridge
+  now sends cumulative measured decode quality to the daemon through
+  `FIELDMESH_RF_MODEM_PROFILE_DECISION v1`, and native-IP evidence requires
+  `fast_primary` plus `phy_adaptive_mcs_live_quality_bound` proof in each
+  direction before the higher raw PHY rate can satisfy production readiness. That profile moved
   40 real-RF
   native-IP frames with zero bridge errors and completed a 4 Kbit/s UDP client
   exchange over real RF, with the Z103 one-shot UDP server exiting cleanly. The

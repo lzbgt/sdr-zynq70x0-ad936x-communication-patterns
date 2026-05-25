@@ -3443,6 +3443,103 @@ static int build_response(fieldmesh_context_t *context,
                      insufficient_quality_decision));
         return 0;
     }
+    if (strstr(request, "FIELDMESH_RF_MODEM_PROFILE_DECISION")) {
+        fieldmesh_rf_modem_profile_quality_t quality;
+        fieldmesh_rf_modem_profile_decision_t decision;
+        unsigned primary_raw_bitrate_bps = 0u;
+        unsigned effective_raw_bitrate_bps = 0u;
+        unsigned primary_decode_attempts = 0u;
+        unsigned primary_decode_successes = 0u;
+        unsigned primary_crc_failures = 0u;
+        unsigned retry_decode_attempts = 0u;
+        unsigned retry_decode_successes = 0u;
+        unsigned retry_crc_failures = 0u;
+        uint32_t primary_per_mille;
+        uint32_t retry_per_mille;
+
+        if (!request_uint_required(request, "primary_raw_bitrate_bps=", 0u,
+                                   100000000u, &primary_raw_bitrate_bps) ||
+            !request_uint_required(request, "effective_raw_bitrate_bps=", 0u,
+                                   100000000u, &effective_raw_bitrate_bps) ||
+            !request_uint_required(request, "primary_decode_attempts=", 0u,
+                                   1000000u, &primary_decode_attempts) ||
+            !request_uint_required(request, "primary_decode_successes=", 0u,
+                                   1000000u, &primary_decode_successes) ||
+            !request_uint_required(request, "primary_crc_failures=", 0u,
+                                   1000000u, &primary_crc_failures) ||
+            !request_uint_required(request, "retry_decode_attempts=", 0u,
+                                   1000000u, &retry_decode_attempts) ||
+            !request_uint_required(request, "retry_decode_successes=", 0u,
+                                   1000000u, &retry_decode_successes) ||
+            !request_uint_required(request, "retry_crc_failures=", 0u,
+                                   1000000u, &retry_crc_failures) ||
+            primary_decode_successes > primary_decode_attempts ||
+            retry_decode_successes > retry_decode_attempts) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_modem_profile_decision\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_measured_quality\"}\n");
+            return 0;
+        }
+        quality.primary_decode_attempts = primary_decode_attempts;
+        quality.primary_decode_successes = primary_decode_successes;
+        quality.primary_crc_failures = primary_crc_failures;
+        quality.retry_decode_attempts = retry_decode_attempts;
+        quality.retry_decode_successes = retry_decode_successes;
+        quality.retry_crc_failures = retry_crc_failures;
+        primary_per_mille = fieldmesh_rf_modem_profile_per_mille(
+            quality.primary_decode_attempts, quality.primary_decode_successes,
+            quality.primary_crc_failures);
+        retry_per_mille = fieldmesh_rf_modem_profile_per_mille(
+            quality.retry_decode_attempts, quality.retry_decode_successes,
+            quality.retry_crc_failures);
+        decision = fieldmesh_rf_modem_profile_decide_from_quality(
+            primary_raw_bitrate_bps, effective_raw_bitrate_bps, &quality);
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_modem_profile_decision\","
+                 "\"ok\":true,"
+                 "\"adaptive_modem_profile_measured_quality_policy\":1,"
+                 "\"adaptive_modem_profile_measured_quality_native_c\":1,"
+                 "\"primary_raw_bitrate_bps\":%u,"
+                 "\"effective_raw_bitrate_bps\":%u,"
+                 "\"primary_decode_attempts\":%u,"
+                 "\"primary_decode_successes\":%u,"
+                 "\"primary_crc_failures\":%u,"
+                 "\"primary_per_mille\":%u,"
+                 "\"retry_decode_attempts\":%u,"
+                 "\"retry_decode_successes\":%u,"
+                 "\"retry_crc_failures\":%u,"
+                 "\"retry_per_mille\":%u,"
+                 "\"fast_primary_min_decode_attempts\":%u,"
+                 "\"fast_primary_max_primary_per_mille\":%u,"
+                 "\"decision\":\"%s\","
+                 "\"high_rate_proven\":%u,"
+                 "\"quality_ready\":%u,"
+                 "\"fast_primary_quality_ok\":%u,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"live_rf_worker_mcs_selection\"}\n",
+                 primary_raw_bitrate_bps,
+                 effective_raw_bitrate_bps,
+                 primary_decode_attempts,
+                 primary_decode_successes,
+                 primary_crc_failures,
+                 (unsigned)primary_per_mille,
+                 retry_decode_attempts,
+                 retry_decode_successes,
+                 retry_crc_failures,
+                 (unsigned)retry_per_mille,
+                 (unsigned)FIELDMESH_RF_MODEM_PROFILE_FAST_MIN_DECODE_ATTEMPTS,
+                 (unsigned)FIELDMESH_RF_MODEM_PROFILE_FAST_MAX_PRIMARY_PER_MILLE,
+                 fieldmesh_rf_modem_profile_decision_name(decision),
+                 decision == FIELDMESH_RF_MODEM_PROFILE_DECISION_FAST_PRIMARY ?
+                     1u : 0u,
+                 fieldmesh_rf_modem_profile_quality_ready(&quality) ? 1u : 0u,
+                 fieldmesh_rf_modem_profile_quality_fast_primary_ok(&quality) ?
+                     1u : 0u);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_DEVICE_IDENTITY_SET")) {
         char hostname[FIELDMESH_NAME_TEXT_MAX];
         char old_eui[FIELDMESH_ID_TEXT_MAX];

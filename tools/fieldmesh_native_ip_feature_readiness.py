@@ -783,6 +783,24 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "host_iio_retry_fallback_quality_decision": report.get(
             "host_iio_retry_fallback_quality_decision"
         ),
+        "board_iio_bridge_phy_adaptive_mcs_decision": report.get(
+            "board_iio_bridge_phy_adaptive_mcs_decision"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_decision": report.get(
+            "host_iio_bridge_phy_adaptive_mcs_decision"
+        ),
+        "board_iio_bridge_phy_adaptive_mcs_live_quality_bound": report.get(
+            "board_iio_bridge_phy_adaptive_mcs_live_quality_bound"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_live_quality_bound": report.get(
+            "host_iio_bridge_phy_adaptive_mcs_live_quality_bound"
+        ),
+        "board_iio_bridge_phy_adaptive_mcs_decision_polls": report.get(
+            "board_iio_bridge_phy_adaptive_mcs_decision_polls"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_decision_polls": report.get(
+            "host_iio_bridge_phy_adaptive_mcs_decision_polls"
+        ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": report.get(
             "board_iio_bridge_in_burst_priority_preemption_enabled"
         ),

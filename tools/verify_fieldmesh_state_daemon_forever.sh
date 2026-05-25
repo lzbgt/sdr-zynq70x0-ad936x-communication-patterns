@@ -95,8 +95,28 @@ def query_iio_transport_enqueue_once():
         raise SystemExit("daemon did not answer IIO transport daemon enqueue")
     replies.append(json.loads(data.decode("utf-8")))
 
+def query_modem_profile_decision_once():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(1.0)
+    try:
+        sock.sendto(
+            b"FIELDMESH_RF_MODEM_PROFILE_DECISION v1 "
+            b"primary_raw_bitrate_bps=21333 effective_raw_bitrate_bps=21333 "
+            b"primary_decode_attempts=4 primary_decode_successes=4 "
+            b"primary_crc_failures=0 retry_decode_attempts=0 "
+            b"retry_decode_successes=0 retry_crc_failures=0",
+            ("127.0.0.1", port),
+        )
+        data, _ = sock.recvfrom(4096)
+    finally:
+        sock.close()
+    if b'"event":"sdk_daemon_rf_modem_profile_decision"' not in data:
+        raise SystemExit("daemon did not answer RF modem profile decision")
+    replies.append(json.loads(data.decode("utf-8")))
+
 query_once()
 query_policy_once()
+query_modem_profile_decision_once()
 query_iio_transport_start_once()
 query_iio_transport_enqueue_once()
 query_iio_transport_once()
@@ -149,6 +169,12 @@ if len(hello_replies) != 2:
     raise SystemExit("daemon did not answer repeated HELLO requests in forever mode")
 if len(policy_replies) != 1:
     raise SystemExit("daemon did not answer RF service policy self-test")
+modem_profile_decisions = [
+    row for row in replies
+    if row.get("event") == "sdk_daemon_rf_modem_profile_decision"
+]
+if len(modem_profile_decisions) != 1:
+    raise SystemExit("daemon did not answer RF modem profile decision")
 iio_transport_replies = [
     row for row in replies
     if row.get("event") == "sdk_daemon_iio_transport_daemon_status"
@@ -214,6 +240,28 @@ expected = {
 for key, value in expected.items():
     if policy.get(key) != value:
         raise SystemExit(f"RF service policy self-test {key} mismatch: {policy}")
+modem_profile_decision = modem_profile_decisions[0]
+expected_modem_profile_decision = {
+    "ok": True,
+    "adaptive_modem_profile_measured_quality_policy": 1,
+    "adaptive_modem_profile_measured_quality_native_c": 1,
+    "primary_decode_attempts": 4,
+    "primary_decode_successes": 4,
+    "primary_crc_failures": 0,
+    "primary_per_mille": 0,
+    "retry_decode_attempts": 0,
+    "retry_decode_successes": 0,
+    "retry_crc_failures": 0,
+    "decision": "fast_primary",
+    "high_rate_proven": 1,
+    "quality_ready": 1,
+    "fast_primary_quality_ok": 1,
+    "starts_rf_tx": 0,
+    "writes_hardware": 0,
+}
+for key, value in expected_modem_profile_decision.items():
+    if modem_profile_decision.get(key) != value:
+        raise SystemExit(f"RF modem profile decision {key} mismatch: {modem_profile_decision}")
 iio_transport = iio_transport_replies[0]
 expected_iio_transport = {
     "ok": True,

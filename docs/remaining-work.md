@@ -318,7 +318,11 @@ at or above 20 kbit/s, while `retry_fallback` remains available for stronger
 decode but cannot satisfy high-rate evidence. The same policy now consumes
 measured decode quality: at least four primary decode attempts, zero primary
 PER/CRC failures, and no retry attempts are required for fast-primary
-selection; under-sampled evidence returns `hold`. Follow-up
+selection; under-sampled evidence returns `hold`. The live RF worker bridge
+now binds that decision during the run by sending cumulative per-direction
+decode/PER counters into `FIELDMESH_RF_MODEM_PROFILE_DECISION v1`, and
+production native-IP evidence rejects captures that lack live quality-bound
+fast-primary MCS proof. Follow-up
 HIL with async source ACK and batch-size 2 moved real-RF
 frames with zero bridge errors and delivered the requested 128-byte TCP payload
 to Z103. The latest duplicate-suppressed `tcp-control-flow` run moved 35

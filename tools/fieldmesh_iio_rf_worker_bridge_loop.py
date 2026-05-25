@@ -1290,6 +1290,159 @@ def modem_retry_used_by_direction(
     }
 
 
+def adaptive_mcs_decision_by_direction(
+    frames: list[dict[str, Any]],
+    directions: list[dict[str, Any]],
+) -> dict[str, str]:
+    decision_by_direction: dict[str, str] = {}
+    for direction in directions:
+        name = direction["name"]
+        key = direction_key(name)
+        decisions = [
+            str(frame.get("adaptive_mcs_decision") or "")
+            for frame in frames
+            if frame.get("direction") == name
+            and not frame.get("filtered_frames")
+            and frame.get("adaptive_mcs_decision")
+        ]
+        decision_by_direction[key] = decisions[-1] if decisions else ""
+    return decision_by_direction
+
+
+def adaptive_mcs_quality_bound_by_direction(
+    frames: list[dict[str, Any]],
+    directions: list[dict[str, Any]],
+) -> dict[str, bool]:
+    bound_by_direction: dict[str, bool] = {}
+    for direction in directions:
+        name = direction["name"]
+        key = direction_key(name)
+        direction_frames = [
+            frame
+            for frame in frames
+            if frame.get("direction") == name and not frame.get("filtered_frames")
+        ]
+        bound_by_direction[key] = bool(
+            direction_frames
+            and any(
+                frame.get("adaptive_mcs_decision_live_quality_bound") is True
+                for frame in direction_frames
+            )
+        )
+    return bound_by_direction
+
+
+def modem_profile_quality_from_attempts(
+    attempts: list[dict[str, Any]],
+    primary_samples_per_symbol: int,
+    primary_bit_repeat: int,
+) -> dict[str, int]:
+    quality = {
+        "primary_decode_attempts": 0,
+        "primary_decode_successes": 0,
+        "primary_crc_failures": 0,
+        "retry_decode_attempts": 0,
+        "retry_decode_successes": 0,
+        "retry_crc_failures": 0,
+    }
+    for attempt in attempts:
+        samples_per_symbol = int(attempt.get("samples_per_symbol") or 0)
+        bit_repeat = int(attempt.get("bit_repeat") or 0)
+        decode = attempt.get("decode") if isinstance(attempt.get("decode"), dict) else {}
+        ok = attempt.get("ok") is True
+        is_primary_modem = (
+            samples_per_symbol == primary_samples_per_symbol
+            and bit_repeat == primary_bit_repeat
+        )
+        prefix = "primary" if is_primary_modem else "retry"
+        quality[f"{prefix}_decode_attempts"] += 1
+        if ok:
+            quality[f"{prefix}_decode_successes"] += 1
+        elif "crc" in str(decode.get("error") or "").lower():
+            quality[f"{prefix}_crc_failures"] += 1
+    return quality
+
+
+def add_modem_quality(left: dict[str, int], right: dict[str, Any]) -> dict[str, int]:
+    merged = dict(left)
+    for key in (
+        "primary_decode_attempts",
+        "primary_decode_successes",
+        "primary_crc_failures",
+        "retry_decode_attempts",
+        "retry_decode_successes",
+        "retry_crc_failures",
+    ):
+        merged[key] = int(merged.get(key, 0)) + int(right.get(key) or 0)
+    return merged
+
+
+def aggregate_modem_quality(
+    frames: list[dict[str, Any]],
+    direction_name: str,
+) -> dict[str, int]:
+    quality = {
+        "primary_decode_attempts": 0,
+        "primary_decode_successes": 0,
+        "primary_crc_failures": 0,
+        "retry_decode_attempts": 0,
+        "retry_decode_successes": 0,
+        "retry_crc_failures": 0,
+    }
+    for frame in frames:
+        if frame.get("direction") != direction_name or frame.get("filtered_frames"):
+            continue
+        frame_quality = frame.get("adaptive_mcs_quality")
+        if isinstance(frame_quality, dict):
+            quality = add_modem_quality(quality, frame_quality)
+    return quality
+
+
+def rf_modem_profile_decision(
+    host: str,
+    port: int,
+    timeout_ms: int,
+    primary_raw_bitrate_bps: float,
+    effective_raw_bitrate_bps: float,
+    quality: dict[str, int],
+) -> dict[str, Any]:
+    request = (
+        "FIELDMESH_RF_MODEM_PROFILE_DECISION v1 "
+        f"primary_raw_bitrate_bps={max(0, int(primary_raw_bitrate_bps))} "
+        f"effective_raw_bitrate_bps={max(0, int(effective_raw_bitrate_bps))} "
+        f"primary_decode_attempts={max(0, int(quality.get('primary_decode_attempts') or 0))} "
+        f"primary_decode_successes={max(0, int(quality.get('primary_decode_successes') or 0))} "
+        f"primary_crc_failures={max(0, int(quality.get('primary_crc_failures') or 0))} "
+        f"retry_decode_attempts={max(0, int(quality.get('retry_decode_attempts') or 0))} "
+        f"retry_decode_successes={max(0, int(quality.get('retry_decode_successes') or 0))} "
+        f"retry_crc_failures={max(0, int(quality.get('retry_crc_failures') or 0))}"
+    )
+    report = bridge.request_daemon(host, port, request, timeout_ms)
+    if report.get("event") != "sdk_daemon_rf_modem_profile_decision":
+        raise SystemExit(
+            "expected sdk_daemon_rf_modem_profile_decision, "
+            f"got {report.get('event')!r}"
+        )
+    if report.get("ok") is not True:
+        raise SystemExit(f"RF_MODEM_PROFILE_DECISION failed: {report}")
+    required = {
+        "adaptive_modem_profile_measured_quality_policy": 1,
+        "adaptive_modem_profile_measured_quality_native_c": 1,
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "live_rf_worker_mcs_selection",
+    }
+    errors = [
+        f"{key}={report.get(key)!r} expected {expected!r}"
+        for key, expected in required.items()
+        if report.get(key) != expected
+    ]
+    if errors:
+        raise SystemExit("RF_MODEM_PROFILE_DECISION invalid: " + "; ".join(errors))
+    return report
+
+
 def split_sub_burst(frames: list[bytes], max_frames_per_burst: int) -> tuple[list[bytes], list[bytes]]:
     if max_frames_per_burst <= 0 or max_frames_per_burst >= len(frames):
         return frames, []
@@ -1662,6 +1815,21 @@ def run_batch(
         effective_samples_per_symbol != primary_samples_per_symbol
         or effective_bit_repeat != primary_bit_repeat
     )
+    modem_quality = modem_profile_quality_from_attempts(
+        run_attempts,
+        primary_samples_per_symbol,
+        primary_bit_repeat,
+    )
+    adaptive_mcs_decision_report: dict[str, Any] = {}
+    if args.execute_live_rf:
+        adaptive_mcs_decision_report = rf_modem_profile_decision(
+            direction["source_host"],
+            direction["source_port"],
+            min(args.daemon_timeout_ms, max(args.lease_timeout_ms, 250)),
+            primary_raw_bitrate_bps,
+            selected_raw_bitrate_bps,
+            modem_quality,
+        )
     recovered_frames: list[bytes] = []
     ingests: list[dict[str, Any]] = []
     source_ack: dict[str, Any] = (
@@ -1727,6 +1895,23 @@ def run_batch(
         "effective_raw_bitrate_bps": selected_raw_bitrate_bps,
         "modem_retry_used": modem_retry_used,
         "primary_modem_decode_ok": primary_modem_decode_ok,
+        "adaptive_mcs_quality": modem_quality,
+        "adaptive_mcs_decision_report": adaptive_mcs_decision_report,
+        "adaptive_mcs_decision": str(
+            adaptive_mcs_decision_report.get("decision") or ""
+        ),
+        "adaptive_mcs_decision_native_c": bool(
+            adaptive_mcs_decision_report.get(
+                "adaptive_modem_profile_measured_quality_native_c"
+            )
+        ),
+        "adaptive_mcs_decision_live_quality_bound": bool(
+            adaptive_mcs_decision_report.get("ok") is True
+            and adaptive_mcs_decision_report.get("quality_ready") == 1
+        ),
+        "adaptive_mcs_high_rate_proven": bool(
+            adaptive_mcs_decision_report.get("high_rate_proven") == 1
+        ),
         "fast_primary_phy_decode_proven": bool(
             primary_modem_decode_ok and primary_raw_bitrate_bps >= 20_000.0
         ),
@@ -1939,6 +2124,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "empty_burst_skips": 0,
         "adaptive_status_polls": 0,
         "adaptive_status_failures": 0,
+        "adaptive_mcs_decision_polls": 0,
+        "adaptive_mcs_decision_failures": 0,
         "native_direction_scheduler_status_polls": 0,
         "native_direction_scheduler_status_failures": 0,
         "native_bidirectional_direction_decision_polls": 0,
@@ -2047,6 +2234,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         )
         fast_primary_decode = fast_primary_decode_by_direction(frames, directions, args)
         retry_used = modem_retry_used_by_direction(frames, directions)
+        adaptive_mcs_decisions = adaptive_mcs_decision_by_direction(frames, directions)
+        adaptive_mcs_quality_bound = adaptive_mcs_quality_bound_by_direction(
+            frames,
+            directions,
+        )
+        adaptive_mcs_quality = {
+            direction_key(direction["name"]): aggregate_modem_quality(
+                frames,
+                direction["name"],
+            )
+            for direction in directions
+        }
         return {
             "event": "fieldmesh_iio_rf_worker_bridge_loop",
             "ok": moved_frames > 0,
@@ -2317,6 +2516,26 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             ),
             "phy_modem_retry_used_by_direction": retry_used,
             "phy_modem_retry_used": any(retry_used.values()),
+            "phy_adaptive_mcs_decision_by_direction": adaptive_mcs_decisions,
+            "phy_adaptive_mcs_decision": (
+                "fast_primary"
+                if adaptive_mcs_decisions
+                and all(decision == "fast_primary" for decision in adaptive_mcs_decisions.values())
+                else "retry_fallback"
+                if any(decision == "retry_fallback" for decision in adaptive_mcs_decisions.values())
+                else "hold"
+            ),
+            "phy_adaptive_mcs_live_quality_bound_by_direction": adaptive_mcs_quality_bound,
+            "phy_adaptive_mcs_live_quality_bound": bool(
+                args.execute_live_rf
+                and adaptive_mcs_quality_bound
+                and all(adaptive_mcs_quality_bound.values())
+            ),
+            "phy_adaptive_mcs_quality_by_direction": adaptive_mcs_quality,
+            "phy_adaptive_mcs_decision_polls": counts["adaptive_mcs_decision_polls"],
+            "phy_adaptive_mcs_decision_failures": counts[
+                "adaptive_mcs_decision_failures"
+            ],
             "cyclic_capture_periods": args.cyclic_capture_periods,
             "cyclic_capture_retry_periods": args.cyclic_capture_retry_periods,
             "modem": {
@@ -2567,6 +2786,42 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     def write_progress() -> None:
         write_json(args.out_dir / "fieldmesh_iio_rf_worker_bridge_loop.json", current_report())
+
+    def bind_live_mcs_decision(
+        direction: dict[str, Any],
+        frame_summary: dict[str, Any],
+    ) -> None:
+        if not args.execute_live_rf:
+            return
+        cumulative_quality = aggregate_modem_quality(frames, direction["name"])
+        frame_quality = frame_summary.get("adaptive_mcs_quality")
+        if isinstance(frame_quality, dict):
+            cumulative_quality = add_modem_quality(cumulative_quality, frame_quality)
+        try:
+            decision = rf_modem_profile_decision(
+                direction["source_host"],
+                direction["source_port"],
+                min(args.daemon_timeout_ms, max(args.lease_timeout_ms, 250)),
+                float(frame_summary.get("primary_raw_bitrate_bps") or 0.0),
+                float(frame_summary.get("effective_raw_bitrate_bps") or 0.0),
+                cumulative_quality,
+            )
+        except (TimeoutError, SystemExit):
+            counts["adaptive_mcs_decision_failures"] += 1
+            raise
+        counts["adaptive_mcs_decision_polls"] += 1
+        frame_summary["adaptive_mcs_quality_cumulative"] = cumulative_quality
+        frame_summary["adaptive_mcs_decision_report"] = decision
+        frame_summary["adaptive_mcs_decision"] = str(decision.get("decision") or "")
+        frame_summary["adaptive_mcs_decision_live_quality_bound"] = bool(
+            decision.get("ok") is True and decision.get("quality_ready") == 1
+        )
+        frame_summary["adaptive_mcs_decision_native_c"] = bool(
+            decision.get("adaptive_modem_profile_measured_quality_native_c") == 1
+        )
+        frame_summary["adaptive_mcs_high_rate_proven"] = bool(
+            decision.get("high_rate_proven") == 1
+        )
 
     write_progress()
     preloaded_lease = load_json(args.leased_frame_report) if args.leased_frame_report else None
@@ -2942,39 +3197,44 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             int(report.get("effective_cyclic_capture_periods") or direction_capture_periods[direction["name"]]),
                         )
                         configured_directions.add(direction["name"])
-                        frames.append(
-                            {
-                                "index": next_index,
-                                "direction": direction["name"],
-                                "report": str(
-                                    args.out_dir
-                                    / f"batch-{next_index:04d}-{direction['name']}"
-                                    / "fieldmesh_iio_rf_worker_bridge_batch.json"
-                                ),
-                                "batch_frames": len(batch_frames),
-                                "primary_samples_per_symbol": report.get("primary_samples_per_symbol"),
-                                "primary_bit_repeat": report.get("primary_bit_repeat"),
-                                "primary_raw_bitrate_bps": report.get("primary_raw_bitrate_bps"),
-                                "samples_per_symbol": report.get("samples_per_symbol"),
-                                "bit_repeat": report.get("bit_repeat"),
-                                "effective_raw_bitrate_bps": report.get("effective_raw_bitrate_bps"),
-                                "modem_retry_used": report.get("modem_retry_used"),
-                                "primary_modem_decode_ok": report.get("primary_modem_decode_ok"),
-                                "fast_primary_phy_decode_proven": report.get("fast_primary_phy_decode_proven"),
-                                "rf_phy_tx_rx_verified": report.get("rf_phy_tx_rx_verified"),
-                                "iq_recovered_frame_match": report.get("iq_recovered_frame_match"),
-                                "sink_ingest_ok": all(
-                                    item.get("ok") is True for item in report.get("sink_ingests", [])
-                                ),
-                                "source_ack_ok": None,
-                                "destructive_source_poll": True,
-                                "skip_rf_config": report.get("skip_rf_config"),
-                                "cyclic_capture_periods": report.get("cyclic_capture_periods"),
-                                "effective_cyclic_capture_periods": report.get("effective_cyclic_capture_periods"),
-                                "elapsed_ms": report.get("elapsed_ms"),
-                                "live_run_elapsed_ms": report.get("live_run_elapsed_ms"),
-                            }
-                        )
+                        frame_summary = {
+                            "index": next_index,
+                            "direction": direction["name"],
+                            "report": str(
+                                args.out_dir
+                                / f"batch-{next_index:04d}-{direction['name']}"
+                                / "fieldmesh_iio_rf_worker_bridge_batch.json"
+                            ),
+                            "batch_frames": len(batch_frames),
+                            "primary_samples_per_symbol": report.get("primary_samples_per_symbol"),
+                            "primary_bit_repeat": report.get("primary_bit_repeat"),
+                            "primary_raw_bitrate_bps": report.get("primary_raw_bitrate_bps"),
+                            "samples_per_symbol": report.get("samples_per_symbol"),
+                            "bit_repeat": report.get("bit_repeat"),
+                            "effective_raw_bitrate_bps": report.get("effective_raw_bitrate_bps"),
+                            "modem_retry_used": report.get("modem_retry_used"),
+                            "primary_modem_decode_ok": report.get("primary_modem_decode_ok"),
+                            "adaptive_mcs_quality": report.get("adaptive_mcs_quality"),
+                            "adaptive_mcs_decision": report.get("adaptive_mcs_decision"),
+                            "adaptive_mcs_decision_live_quality_bound": report.get(
+                                "adaptive_mcs_decision_live_quality_bound"
+                            ),
+                            "fast_primary_phy_decode_proven": report.get("fast_primary_phy_decode_proven"),
+                            "rf_phy_tx_rx_verified": report.get("rf_phy_tx_rx_verified"),
+                            "iq_recovered_frame_match": report.get("iq_recovered_frame_match"),
+                            "sink_ingest_ok": all(
+                                item.get("ok") is True for item in report.get("sink_ingests", [])
+                            ),
+                            "source_ack_ok": None,
+                            "destructive_source_poll": True,
+                            "skip_rf_config": report.get("skip_rf_config"),
+                            "cyclic_capture_periods": report.get("cyclic_capture_periods"),
+                            "effective_cyclic_capture_periods": report.get("effective_cyclic_capture_periods"),
+                            "elapsed_ms": report.get("elapsed_ms"),
+                            "live_run_elapsed_ms": report.get("live_run_elapsed_ms"),
+                        }
+                        bind_live_mcs_decision(direction, frame_summary)
+                        frames.append(frame_summary)
                         counts[direction["name"].replace("-", "_")] += len(batch_frames)
                         counts["batches_moved"] += 1
                         record_served_direction(direction["name"])
@@ -3141,6 +3401,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             "effective_raw_bitrate_bps": report.get("effective_raw_bitrate_bps"),
                             "modem_retry_used": report.get("modem_retry_used"),
                             "primary_modem_decode_ok": report.get("primary_modem_decode_ok"),
+                            "adaptive_mcs_quality": report.get("adaptive_mcs_quality"),
+                            "adaptive_mcs_decision": report.get("adaptive_mcs_decision"),
+                            "adaptive_mcs_decision_live_quality_bound": report.get(
+                                "adaptive_mcs_decision_live_quality_bound"
+                            ),
                             "fast_primary_phy_decode_proven": report.get("fast_primary_phy_decode_proven"),
                             "rf_phy_tx_rx_verified": report.get("rf_phy_tx_rx_verified"),
                             "iq_recovered_frame_match": report.get("iq_recovered_frame_match"),
@@ -3173,6 +3438,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             "elapsed_ms": report.get("elapsed_ms"),
                             "live_run_elapsed_ms": report.get("live_run_elapsed_ms"),
                         }
+                        bind_live_mcs_decision(direction, frame_summary)
                         if args.async_source_ack and args.execute_live_rf:
                             frame_summary["source_ack"] = async_acker.submit(
                                 direction,

@@ -125,6 +125,9 @@ Responsibilities:
   rate at or above 20 kbit/s, while retry fallback is classified separately.
   The native policy also accepts measured decode-quality counters and only
   selects fast primary after at least four zero-PER primary decode attempts.
+  The live RF worker bridge now queries that C decision path during a run, so
+  readiness evidence must show MCS selection was bound to live decode/PER
+  counters rather than only classified after log collection.
 - Program scheduled TX/RX descriptors into the driver ring.
 - Read RX completion rings and deliver frames to `swarm0` or stream sockets.
 - Keep deterministic counters in fixed-size structs.

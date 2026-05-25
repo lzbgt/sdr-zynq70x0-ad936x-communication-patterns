@@ -1465,7 +1465,11 @@ user and vendor configuration.
   decode quality counters: at least four primary decode attempts, zero primary
   PER/CRC failures, and no retry attempts are required before selecting the
   fast profile; insufficient samples hold the current profile instead of
-  guessing. The
+  guessing. The live RF worker bridge now feeds its cumulative per-direction
+  decode/PER counters back into the daemon's
+  `FIELDMESH_RF_MODEM_PROFILE_DECISION v1` command during the run, and
+  production evidence must prove the accepted fast-primary MCS decision was
+  bound to those live counters rather than inferred only from archived reports. The
   Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
   already interrupted by the wrapper timeout, this is not production `iperf3`

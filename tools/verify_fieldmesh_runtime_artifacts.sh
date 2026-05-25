@@ -454,6 +454,9 @@ PY
         fast_primary_quality_decision \
         retry_fallback_quality_decision \
         insufficient_quality_decision \
+        FIELDMESH_RF_MODEM_PROFILE_DECISION \
+        sdk_daemon_rf_modem_profile_decision \
+        live_rf_worker_mcs_selection \
         FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER \
         state_daemon_iio_transport_execution_worker \
         state_daemon_libiio_execution_owner \

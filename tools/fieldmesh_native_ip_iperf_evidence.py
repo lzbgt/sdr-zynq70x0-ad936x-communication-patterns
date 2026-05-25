@@ -144,6 +144,26 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         errors.append(f"{label}: measured quality policy did not select retry_fallback")
     if report.get("iio_bridge_insufficient_quality_decision") != "hold":
         errors.append(f"{label}: insufficient measured quality must hold current profile")
+    if report.get("iio_bridge_phy_adaptive_mcs_decision") != "fast_primary":
+        errors.append(f"{label}: live adaptive MCS decision must select fast_primary")
+    mcs_decisions = report.get("iio_bridge_phy_adaptive_mcs_decision_by_direction")
+    if not isinstance(mcs_decisions, dict) or not mcs_decisions:
+        errors.append(f"{label}: live adaptive MCS direction decisions are missing")
+    elif any(decision != "fast_primary" for decision in mcs_decisions.values()):
+        errors.append(f"{label}: live adaptive MCS direction decisions must be fast_primary")
+    if report.get("iio_bridge_phy_adaptive_mcs_live_quality_bound") is not True:
+        errors.append(f"{label}: live adaptive MCS decision is not bound to measured quality")
+    mcs_quality_bound = report.get("iio_bridge_phy_adaptive_mcs_live_quality_bound_by_direction")
+    if not isinstance(mcs_quality_bound, dict) or not mcs_quality_bound:
+        errors.append(f"{label}: live adaptive MCS quality-bound direction proof is missing")
+    elif any(value is not True for value in mcs_quality_bound.values()):
+        errors.append(f"{label}: every live adaptive MCS direction must be quality-bound")
+    if not isinstance(report.get("iio_bridge_phy_adaptive_mcs_decision_polls"), int) or (
+        report.get("iio_bridge_phy_adaptive_mcs_decision_polls") < 1
+    ):
+        errors.append(f"{label}: live adaptive MCS decision was not exercised")
+    if report.get("iio_bridge_phy_adaptive_mcs_decision_failures") != 0:
+        errors.append(f"{label}: live adaptive MCS decision reported failures")
     if report.get("iio_bridge_native_rf_service_worker_required") is not True:
         errors.append(f"{label}: native RF service worker proof must be required")
     if report.get("iio_bridge_native_rf_service_worker_proven") is not True:
@@ -1702,6 +1722,24 @@ def main() -> int:
         ),
         "host_iio_retry_fallback_quality_decision": host.get(
             "iio_bridge_retry_fallback_quality_decision"
+        ),
+        "board_iio_bridge_phy_adaptive_mcs_decision": board.get(
+            "iio_bridge_phy_adaptive_mcs_decision"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_decision": host.get(
+            "iio_bridge_phy_adaptive_mcs_decision"
+        ),
+        "board_iio_bridge_phy_adaptive_mcs_live_quality_bound": board.get(
+            "iio_bridge_phy_adaptive_mcs_live_quality_bound"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_live_quality_bound": host.get(
+            "iio_bridge_phy_adaptive_mcs_live_quality_bound"
+        ),
+        "board_iio_bridge_phy_adaptive_mcs_decision_polls": board.get(
+            "iio_bridge_phy_adaptive_mcs_decision_polls"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_decision_polls": host.get(
+            "iio_bridge_phy_adaptive_mcs_decision_polls"
         ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": board.get(
             "iio_bridge_in_burst_priority_preemption_enabled"

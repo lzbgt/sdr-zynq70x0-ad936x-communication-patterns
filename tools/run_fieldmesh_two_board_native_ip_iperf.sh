@@ -3207,6 +3207,28 @@ report = {
     "iio_bridge_phy_modem_retry_used_by_direction": (
         last_iio_bridge.get("phy_modem_retry_used_by_direction") or {}
     ),
+    "iio_bridge_phy_adaptive_mcs_decision": str(
+        last_iio_bridge.get("phy_adaptive_mcs_decision") or ""
+    ),
+    "iio_bridge_phy_adaptive_mcs_decision_by_direction": (
+        last_iio_bridge.get("phy_adaptive_mcs_decision_by_direction") or {}
+    ),
+    "iio_bridge_phy_adaptive_mcs_live_quality_bound": bool(
+        last_iio_bridge.get("phy_adaptive_mcs_live_quality_bound")
+    ),
+    "iio_bridge_phy_adaptive_mcs_live_quality_bound_by_direction": (
+        last_iio_bridge.get("phy_adaptive_mcs_live_quality_bound_by_direction")
+        or {}
+    ),
+    "iio_bridge_phy_adaptive_mcs_quality_by_direction": (
+        last_iio_bridge.get("phy_adaptive_mcs_quality_by_direction") or {}
+    ),
+    "iio_bridge_phy_adaptive_mcs_decision_polls": int(
+        last_iio_bridge.get("phy_adaptive_mcs_decision_polls") or 0
+    ),
+    "iio_bridge_phy_adaptive_mcs_decision_failures": int(
+        last_iio_bridge.get("phy_adaptive_mcs_decision_failures") or 0
+    ),
     "iio_bridge_state_daemon_iio_transport_enqueue_failures": int(
         last_iio_bridge.get("state_daemon_iio_transport_enqueue_failures") or 0
     ),
