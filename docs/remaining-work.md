@@ -280,9 +280,9 @@ airtime. A destructive diagnostic run moved the actual 244-byte TCP data
 segments plus `iperf3` result JSON over RF, then failed on a reverse result
 batch decode. The bridge now has a compiled libiio burst helper, so one process
 arms RX and pushes TX instead of launching separate IIO tools for every RF
-batch. Its C modem helpers now cover baseband BPSK/BFSK encode/decode,
-known-carrier BPSK encode/decode, and coherent BPSK phase recovery; the BFSK
-and BPSK decoders use prefix accumulators, and the verifier proves the C BPSK
+batch. Its C modem helpers now cover baseband BPSK/QPSK/BFSK encode/decode,
+known-carrier BPSK/QPSK encode/decode, and coherent BPSK/QPSK phase recovery; the BFSK
+and PSK decoders use prefix accumulators, and the verifier proves the C PSK
 decoder recovers a 90-degree rotated IQ burst while both C decoders recover
 after a CRC-wrong sync candidate followed by a good burst, so those failure
 modes are covered without Python in the modem primitive. That helper improved batch
@@ -338,16 +338,16 @@ frames with zero duplicate drops; the captured TCP sequence shows the
 but `iperf3` still timed out with its data/control sockets established before
 the final result/shutdown exchange completed. A 48-sample/repeat-3 BFSK
 profile lowered many batch times to about 0.8-1.3 seconds but still left the
-raw PHY ceiling too low. The current fast profile is BPSK 1-sample/repeat-1 in
+raw PHY ceiling too low. The current fast profile is QPSK 1-sample/repeat-1 in
 both directions at 7.68 Msps with a 5 MHz RF bandwidth default, raising the raw
-modem PHY ceiling to 7.68 Mbit/s while keeping 32-sample/repeat-2 as the
+modem PHY ceiling to 15.36 Mbit/s while keeping 32-sample/repeat-2 as the
 stronger retry profile. The fast path
 is accepted only behind a minimum raw PHY evidence gate that requires
 fast-primary decode success and rejects archives that relied on the lower-rate
 retry modem profile. The state
 daemon now exposes the adaptive modem profile decision as native C policy:
 `fast_primary` requires primary decode, no retry, and effective raw PHY rate
-at or above 6 Mbit/s, while `retry_fallback` remains available for stronger
+at or above 12 Mbit/s, while `retry_fallback` remains available for stronger
 decode but cannot satisfy high-rate evidence. The same policy now consumes
 measured decode quality: at least four primary decode attempts, zero primary
 PER/CRC failures, and no retry attempts are required for fast-primary

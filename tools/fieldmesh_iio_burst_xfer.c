@@ -161,6 +161,17 @@ static void usage(FILE *stream)
             "[--expected-frame-len N] [--expected-frame-crc HEX] "
             "[--sample-rate-hz N] [--baseband-carrier-hz N] "
             "[--samples-per-symbol N] [--bit-repeat N]\n"
+            "       fieldmesh_iio_burst_xfer --qpsk-self-test\n"
+            "       fieldmesh_iio_burst_xfer --qpsk-benchmark --frame-file PATH "
+            "[--iterations N] [--sample-rate-hz N] [--baseband-carrier-hz N] "
+            "[--samples-per-symbol N] [--bit-repeat N]\n"
+            "       fieldmesh_iio_burst_xfer --qpsk-encode --frame-file PATH --iq-file PATH "
+            "[--sample-rate-hz N] [--baseband-carrier-hz N] "
+            "[--samples-per-symbol N] [--bit-repeat N]\n"
+            "       fieldmesh_iio_burst_xfer --qpsk-decode --iq-file PATH --decoded-file PATH "
+            "[--expected-frame-len N] [--expected-frame-crc HEX] "
+            "[--sample-rate-hz N] [--baseband-carrier-hz N] "
+            "[--samples-per-symbol N] [--bit-repeat N]\n"
             "       fieldmesh_iio_burst_xfer --bfsk-self-test\n"
             "       fieldmesh_iio_burst_xfer --bfsk-benchmark --frame-file PATH "
             "[--iterations N] [--sample-rate-hz N] [--space-hz N] [--mark-hz N] "
@@ -399,6 +410,11 @@ static int bit_at(const unsigned char *data, size_t bit_index)
     return (data[bit_index / 8u] >> (7u - (bit_index % 8u))) & 1u;
 }
 
+static int bit_at_or_zero(const unsigned char *data, size_t bits, size_t bit_index)
+{
+    return bit_index < bits ? bit_at(data, bit_index) : 0;
+}
+
 static struct blob bfsk_encode_frame(
     const unsigned char *frame,
     size_t frame_len,
@@ -475,6 +491,65 @@ static struct blob bpsk_encode_frame(
                 if (opt->baseband_carrier_hz != 0.0) {
                     q_value = (int)lrint((double)symbol_value * sin(carrier_phase));
                     i_value = (int)lrint((double)symbol_value * cos(carrier_phase));
+                }
+                put_i16le(iq.data + out, i_value);
+                put_i16le(iq.data + out + 2u, q_value);
+                out += 4u;
+                if (opt->baseband_carrier_hz != 0.0) {
+                    carrier_phase += carrier_step;
+                    if (carrier_phase <= -2.0 * M_PI || carrier_phase >= 2.0 * M_PI) {
+                        carrier_phase = fmod(carrier_phase, 2.0 * M_PI);
+                    }
+                }
+            }
+        }
+    }
+    free(payload.data);
+    return iq;
+}
+
+static struct blob qpsk_encode_frame(
+    const unsigned char *frame,
+    size_t frame_len,
+    const struct modem_options *opt)
+{
+    struct blob payload = burst_payload_from_frame(frame, frame_len);
+    size_t source_bits = payload.len * 8u;
+    size_t source_symbols = (source_bits + 1u) / 2u;
+    size_t total_symbols = source_symbols * opt->bit_repeat;
+    size_t iq_len = total_symbols * opt->samples_per_symbol * 4u;
+    struct blob iq = {
+        .data = calloc(iq_len, 1u),
+        .len = iq_len,
+    };
+    if (!iq.data) {
+        fprintf(stderr, "calloc(%zu) failed\n", iq_len);
+        exit(1);
+    }
+
+    size_t out = 0;
+    double carrier_phase = 0.0;
+    double carrier_step = 0.0;
+    if (opt->baseband_carrier_hz != 0.0) {
+        carrier_step = 2.0 * M_PI * opt->baseband_carrier_hz /
+                       (double)opt->sample_rate_hz;
+    }
+    for (size_t symbol_index = 0; symbol_index < source_symbols; ++symbol_index) {
+        int bit_i = bit_at_or_zero(payload.data, source_bits, symbol_index * 2u);
+        int bit_q = bit_at_or_zero(payload.data, source_bits, symbol_index * 2u + 1u);
+        int symbol_i = bit_i ? IQ_AMPLITUDE : -IQ_AMPLITUDE;
+        int symbol_q = bit_q ? IQ_AMPLITUDE : -IQ_AMPLITUDE;
+        for (unsigned int repeat = 0; repeat < opt->bit_repeat; ++repeat) {
+            for (unsigned int sample = 0; sample < opt->samples_per_symbol; ++sample) {
+                int i_value = symbol_i;
+                int q_value = symbol_q;
+                if (opt->baseband_carrier_hz != 0.0) {
+                    double c = cos(carrier_phase);
+                    double s = sin(carrier_phase);
+                    i_value = (int)lrint((double)symbol_i * c -
+                                         (double)symbol_q * s);
+                    q_value = (int)lrint((double)symbol_i * s +
+                                         (double)symbol_q * c);
                 }
                 put_i16le(iq.data + out, i_value);
                 put_i16le(iq.data + out + 2u, q_value);
@@ -764,6 +839,9 @@ static bool recover_frame_from_bits(
     const struct modem_options *opt,
     struct blob *out);
 
+static int hard_bits_match_bytes(const unsigned char *bits, size_t bit_start,
+                                 const unsigned char *bytes, size_t len);
+
 static unsigned char *project_bpsk_bits(
     const double *bits_i,
     const double *bits_q,
@@ -855,6 +933,158 @@ static bool bpsk_decode_frame_coherent(
             }
             free(bits_i);
             free(bits_q);
+        }
+    }
+    return false;
+}
+
+static bool build_qpsk_symbols(
+    const struct bpsk_prefixes *prefixes,
+    const struct modem_options *opt,
+    unsigned int sample_offset,
+    unsigned int chip_phase,
+    double **out_i,
+    double **out_q,
+    size_t *out_symbols)
+{
+    size_t total_samples = prefixes ? prefixes->total_samples : 0u;
+    if (total_samples <= sample_offset || sample_offset >= opt->samples_per_symbol) {
+        return false;
+    }
+    size_t chips = (total_samples - sample_offset) / opt->samples_per_symbol;
+    if (chips <= chip_phase) {
+        return false;
+    }
+    size_t symbols = (chips - chip_phase) / opt->bit_repeat;
+    double *symbols_i = calloc(symbols ? symbols : 1u, sizeof(*symbols_i));
+    double *symbols_q = calloc(symbols ? symbols : 1u, sizeof(*symbols_q));
+    if (!symbols_i || !symbols_q) {
+        free(symbols_i);
+        free(symbols_q);
+        fprintf(stderr, "calloc(%zu) failed\n", symbols);
+        exit(1);
+    }
+    for (size_t symbol_index = 0; symbol_index < symbols; ++symbol_index) {
+        double acc_i = 0.0;
+        double acc_q = 0.0;
+        for (unsigned int repeat = 0; repeat < opt->bit_repeat; ++repeat) {
+            size_t chip = chip_phase + symbol_index * opt->bit_repeat + repeat;
+            size_t sample_start = sample_offset + chip * opt->samples_per_symbol;
+            size_t sample_end = sample_start + opt->samples_per_symbol;
+            acc_i += prefixes->symbol_i[sample_end] - prefixes->symbol_i[sample_start];
+            acc_q += prefixes->symbol_q[sample_end] - prefixes->symbol_q[sample_start];
+        }
+        symbols_i[symbol_index] = acc_i;
+        symbols_q[symbol_index] = acc_q;
+    }
+    *out_i = symbols_i;
+    *out_q = symbols_q;
+    *out_symbols = symbols;
+    return true;
+}
+
+static void expected_qpsk_symbol(size_t symbol_bit_start,
+                                 double *out_i,
+                                 double *out_q)
+{
+    int bit_i = symbol_bit_start < sizeof(PREAMBLE) * 8u
+                    ? bit_at(PREAMBLE, symbol_bit_start)
+                    : bit_at(SYNC, symbol_bit_start - sizeof(PREAMBLE) * 8u);
+    int bit_q = symbol_bit_start + 1u < sizeof(PREAMBLE) * 8u
+                    ? bit_at(PREAMBLE, symbol_bit_start + 1u)
+                    : bit_at(SYNC, symbol_bit_start + 1u - sizeof(PREAMBLE) * 8u);
+    *out_i = bit_i ? 1.0 : -1.0;
+    *out_q = bit_q ? 1.0 : -1.0;
+}
+
+static unsigned char *project_qpsk_bits(
+    const double *symbols_i,
+    const double *symbols_q,
+    size_t symbols_len,
+    double phase_i,
+    double phase_q)
+{
+    size_t bits_len = symbols_len * 2u;
+    unsigned char *hard = calloc(bits_len ? bits_len : 1u, 1u);
+    if (!hard) {
+        fprintf(stderr, "calloc(%zu) failed\n", bits_len);
+        exit(1);
+    }
+    for (size_t symbol_index = 0; symbol_index < symbols_len; ++symbol_index) {
+        double ri = symbols_i[symbol_index];
+        double rq = symbols_q[symbol_index];
+        double demod_i = ri * phase_i + rq * phase_q;
+        double demod_q = rq * phase_i - ri * phase_q;
+        hard[symbol_index * 2u] = demod_i >= 0.0 ? 1u : 0u;
+        hard[symbol_index * 2u + 1u] = demod_q >= 0.0 ? 1u : 0u;
+    }
+    return hard;
+}
+
+static bool qpsk_decode_frame_coherent(
+    const struct bpsk_prefixes *prefixes,
+    const struct modem_options *opt,
+    struct blob *out,
+    unsigned int *out_sample_offset,
+    unsigned int *out_chip_phase,
+    size_t *out_bit_start)
+{
+    size_t sync_bits = (sizeof(PREAMBLE) + sizeof(SYNC)) * 8u;
+    size_t sync_symbols = (sync_bits + 1u) / 2u;
+    size_t required_bits = sync_bits + 16u + 32u;
+    if (opt->have_expected_frame_len) {
+        required_bits += opt->expected_frame_len * 8u;
+    }
+    for (unsigned int sample_offset = 0; sample_offset < opt->samples_per_symbol; ++sample_offset) {
+        for (unsigned int chip_phase = 0; chip_phase < opt->bit_repeat; ++chip_phase) {
+            double *symbols_i = NULL;
+            double *symbols_q = NULL;
+            size_t symbols_len = 0;
+            if (!build_qpsk_symbols(prefixes, opt, sample_offset, chip_phase,
+                                    &symbols_i, &symbols_q, &symbols_len)) {
+                continue;
+            }
+            size_t bits_len = symbols_len * 2u;
+            if (bits_len >= required_bits) {
+                size_t latest_symbol_start = (bits_len - required_bits) / 2u;
+                for (size_t symbol_start = 0; symbol_start <= latest_symbol_start; ++symbol_start) {
+                    double corr_i = 0.0;
+                    double corr_q = 0.0;
+                    for (size_t symbol = 0; symbol < sync_symbols; ++symbol) {
+                        double expected_i = 0.0;
+                        double expected_q = 0.0;
+                        expected_qpsk_symbol(symbol * 2u, &expected_i, &expected_q);
+                        double ri = symbols_i[symbol_start + symbol];
+                        double rq = symbols_q[symbol_start + symbol];
+                        corr_i += ri * expected_i + rq * expected_q;
+                        corr_q += rq * expected_i - ri * expected_q;
+                    }
+                    double mag = hypot(corr_i, corr_q);
+                    if (mag <= 0.0) {
+                        continue;
+                    }
+                    double phase_i = corr_i / mag;
+                    double phase_q = corr_q / mag;
+                    unsigned char *bits = project_qpsk_bits(
+                        symbols_i, symbols_q, symbols_len, phase_i, phase_q);
+                    size_t bit_start = symbol_start * 2u;
+                    if (hard_bits_match_bytes(bits, bit_start, PREAMBLE, sizeof(PREAMBLE)) &&
+                        hard_bits_match_bytes(bits, bit_start + sizeof(PREAMBLE) * 8u,
+                                              SYNC, sizeof(SYNC)) &&
+                        recover_frame_from_bits(bits, bits_len, bit_start, opt, out)) {
+                        *out_sample_offset = sample_offset;
+                        *out_chip_phase = chip_phase;
+                        *out_bit_start = bit_start;
+                        free(bits);
+                        free(symbols_i);
+                        free(symbols_q);
+                        return true;
+                    }
+                    free(bits);
+                }
+            }
+            free(symbols_i);
+            free(symbols_q);
         }
     }
     return false;
@@ -1034,6 +1264,29 @@ static bool bpsk_decode_frame(
     return false;
 }
 
+static bool qpsk_decode_frame(
+    const unsigned char *iq,
+    size_t iq_len,
+    const struct modem_options *opt,
+    struct blob *out,
+    unsigned int *out_sample_offset,
+    unsigned int *out_chip_phase,
+    size_t *out_bit_start)
+{
+    struct bpsk_prefixes prefixes;
+    if (!build_bpsk_prefixes(iq, iq_len, opt, &prefixes)) {
+        fprintf(stderr, "failed to build QPSK symbol prefixes\n");
+        return false;
+    }
+    if (qpsk_decode_frame_coherent(&prefixes, opt, out, out_sample_offset,
+                                   out_chip_phase, out_bit_start)) {
+        free_bpsk_prefixes(&prefixes);
+        return true;
+    }
+    free_bpsk_prefixes(&prefixes);
+    return false;
+}
+
 static void modem_defaults(struct modem_options *opt)
 {
     memset(opt, 0, sizeof(*opt));
@@ -1196,6 +1449,61 @@ static int run_bpsk_decode(int argc, char **argv)
     return ok ? 0 : 1;
 }
 
+static int run_qpsk_encode(int argc, char **argv)
+{
+    struct modem_options opt;
+    parse_modem_args(argc, argv, &opt);
+    if (!opt.frame_file || !opt.iq_file) {
+        usage(stderr);
+        return 2;
+    }
+    struct blob frame = read_file_all(opt.frame_file);
+    struct blob iq = qpsk_encode_frame(frame.data, frame.len, &opt);
+    write_file_all(opt.iq_file, iq.data, iq.len);
+    fprintf(stdout,
+            "{\"event\":\"fieldmesh_qpsk_modem_encode\",\"ok\":true,"
+            "\"frame_bytes\":%zu,\"iq_bytes\":%zu,\"samples_per_symbol\":%u,"
+            "\"bit_repeat\":%u,\"bits_per_symbol\":2,"
+            "\"baseband_carrier_hz\":%.0f}\n",
+            frame.len, iq.len, opt.samples_per_symbol, opt.bit_repeat,
+            opt.baseband_carrier_hz);
+    free(iq.data);
+    free(frame.data);
+    return 0;
+}
+
+static int run_qpsk_decode(int argc, char **argv)
+{
+    struct modem_options opt;
+    parse_modem_args(argc, argv, &opt);
+    if (!opt.iq_file || !opt.decoded_file) {
+        usage(stderr);
+        return 2;
+    }
+    struct blob iq = read_file_all(opt.iq_file);
+    struct blob decoded = {0};
+    unsigned int sample_offset = 0;
+    unsigned int chip_phase = 0;
+    size_t bit_start = 0;
+    bool ok = qpsk_decode_frame(iq.data, iq.len, &opt, &decoded,
+                                &sample_offset, &chip_phase, &bit_start);
+    if (ok) {
+        write_file_all(opt.decoded_file, decoded.data, decoded.len);
+    }
+    fprintf(stdout,
+            "{\"event\":\"fieldmesh_qpsk_modem_decode\",\"ok\":%s,"
+            "\"iq_bytes\":%zu,\"frame_bytes\":%zu,\"samples_per_symbol\":%u,"
+            "\"bit_repeat\":%u,\"bits_per_symbol\":2,"
+            "\"sample_offset\":%u,\"chip_phase\":%u,"
+            "\"bit_start\":%zu,\"baseband_carrier_hz\":%.0f}\n",
+            ok ? "true" : "false", iq.len, ok ? decoded.len : (size_t)0,
+            opt.samples_per_symbol, opt.bit_repeat, sample_offset,
+            chip_phase, bit_start, opt.baseband_carrier_hz);
+    free(decoded.data);
+    free(iq.data);
+    return ok ? 0 : 1;
+}
+
 static struct blob rotate_iq_90deg(const struct blob *iq)
 {
     struct blob rotated = {
@@ -1294,6 +1602,77 @@ static int run_bpsk_self_test(void)
     return ok ? 0 : 1;
 }
 
+static int run_qpsk_self_test(void)
+{
+    struct modem_options opt;
+    modem_defaults(&opt);
+    static const unsigned char frame[] = {
+        'F', 'M', 'B', 'A', 'T', 'C', 'H', '1',
+        0x00, 0x02,
+        0x00, 0x03, 0x01, 0x02, 0x03,
+        0x00, 0x04, 0xaa, 0xbb, 0xcc, 0xdd,
+    };
+    struct blob iq = qpsk_encode_frame(frame, sizeof(frame), &opt);
+    struct blob decoded_base = {0};
+    unsigned int sample_offset = 0;
+    unsigned int chip_phase = 0;
+    size_t bit_start = 0;
+    bool base_ok = qpsk_decode_frame(iq.data, iq.len, &opt, &decoded_base,
+                                     &sample_offset, &chip_phase, &bit_start) &&
+                   decoded_frame_matches(&decoded_base, frame, sizeof(frame));
+
+    struct blob rotated_iq = rotate_iq_90deg(&iq);
+    struct blob decoded_rotated = {0};
+    unsigned int rotated_sample_offset = 0;
+    unsigned int rotated_chip_phase = 0;
+    size_t rotated_bit_start = 0;
+    bool phase_recovery_ok =
+        qpsk_decode_frame(rotated_iq.data, rotated_iq.len, &opt,
+                          &decoded_rotated, &rotated_sample_offset,
+                          &rotated_chip_phase, &rotated_bit_start) &&
+        decoded_frame_matches(&decoded_rotated, frame, sizeof(frame));
+
+    struct modem_options carrier_opt = opt;
+    carrier_opt.sample_rate_hz = 1000000U;
+    carrier_opt.baseband_carrier_hz = 125000.0;
+    carrier_opt.samples_per_symbol = 16U;
+    carrier_opt.bit_repeat = 2U;
+    struct blob carrier_iq = qpsk_encode_frame(frame, sizeof(frame), &carrier_opt);
+    struct blob decoded_carrier = {0};
+    unsigned int carrier_sample_offset = 0;
+    unsigned int carrier_chip_phase = 0;
+    size_t carrier_bit_start = 0;
+    bool carrier_ok =
+        qpsk_decode_frame(carrier_iq.data, carrier_iq.len, &carrier_opt,
+                          &decoded_carrier, &carrier_sample_offset,
+                          &carrier_chip_phase, &carrier_bit_start) &&
+        decoded_frame_matches(&decoded_carrier, frame, sizeof(frame));
+
+    bool ok = base_ok && phase_recovery_ok && carrier_ok;
+    fprintf(stdout,
+            "{\"event\":\"fieldmesh_qpsk_modem_self_test\",\"ok\":%s,"
+            "\"base_ok\":%s,\"phase_recovery_ok\":%s,\"carrier_ok\":%s,"
+            "\"frame_bytes\":%zu,\"iq_bytes\":%zu,\"bits_per_symbol\":2,"
+            "\"sample_offset\":%u,\"chip_phase\":%u,\"bit_start\":%zu,"
+            "\"carrier_sample_offset\":%u,\"carrier_chip_phase\":%u,"
+            "\"carrier_bit_start\":%zu,\"baseband_carrier_hz\":%.0f}\n",
+            ok ? "true" : "false",
+            base_ok ? "true" : "false",
+            phase_recovery_ok ? "true" : "false",
+            carrier_ok ? "true" : "false",
+            sizeof(frame), iq.len, sample_offset,
+            chip_phase, bit_start, carrier_sample_offset,
+            carrier_chip_phase, carrier_bit_start,
+            carrier_opt.baseband_carrier_hz);
+    free(decoded_carrier.data);
+    free(carrier_iq.data);
+    free(decoded_rotated.data);
+    free(rotated_iq.data);
+    free(decoded_base.data);
+    free(iq.data);
+    return ok ? 0 : 1;
+}
+
 static int run_bpsk_benchmark(int argc, char **argv)
 {
     struct modem_options opt;
@@ -1352,6 +1731,77 @@ static int run_bpsk_benchmark(int argc, char **argv)
             "\"frame_bytes\":%zu,\"iq_bytes\":%zu,\"iterations\":%u,"
             "\"samples_per_symbol\":%u,\"bit_repeat\":%u,"
             "\"baseband_carrier_hz\":%.0f,"
+            "\"encode_elapsed_us\":%lld,\"decode_elapsed_us\":%lld,"
+            "\"encode_frame_kbps\":%llu,\"decode_frame_kbps\":%llu,"
+            "\"sample_offset\":%u,\"chip_phase\":%u,\"bit_start\":%zu}\n",
+            frame.len, iq.len, opt.iterations, opt.samples_per_symbol,
+            opt.bit_repeat, opt.baseband_carrier_hz, encode_us, decode_us,
+            kbps_for_bytes(frame.len, opt.iterations, encode_us),
+            kbps_for_bytes(frame.len, opt.iterations, decode_us),
+            sample_offset, chip_phase, bit_start);
+    free(iq.data);
+    free(frame.data);
+    return 0;
+}
+
+static int run_qpsk_benchmark(int argc, char **argv)
+{
+    struct modem_options opt;
+    parse_modem_args(argc, argv, &opt);
+    if (!opt.frame_file) {
+        usage(stderr);
+        return 2;
+    }
+
+    struct blob frame = read_file_all(opt.frame_file);
+    opt.expected_frame_len = frame.len;
+    opt.expected_frame_crc = crc32_update(0u, frame.data, frame.len);
+    opt.have_expected_frame_len = true;
+    opt.have_expected_frame_crc = true;
+
+    struct blob iq = {0};
+    long long encode_start = monotonic_us();
+    for (unsigned int i = 0; i < opt.iterations; ++i) {
+        struct blob next = qpsk_encode_frame(frame.data, frame.len, &opt);
+        if (i + 1u == opt.iterations) {
+            iq = next;
+        } else {
+            free(next.data);
+        }
+    }
+    long long encode_us = monotonic_us() - encode_start;
+    if (encode_us <= 0) {
+        encode_us = 1;
+    }
+
+    unsigned int sample_offset = 0;
+    unsigned int chip_phase = 0;
+    size_t bit_start = 0;
+    long long decode_start = monotonic_us();
+    for (unsigned int i = 0; i < opt.iterations; ++i) {
+        struct blob decoded = {0};
+        bool ok = qpsk_decode_frame(iq.data, iq.len, &opt, &decoded,
+                                    &sample_offset, &chip_phase, &bit_start) &&
+                  decoded_frame_matches(&decoded, frame.data, frame.len);
+        free(decoded.data);
+        if (!ok) {
+            fprintf(stderr, "QPSK benchmark decode failed at iteration %u\n", i);
+            free(iq.data);
+            free(frame.data);
+            return 1;
+        }
+    }
+    long long decode_us = monotonic_us() - decode_start;
+    if (decode_us <= 0) {
+        decode_us = 1;
+    }
+
+    fprintf(stdout,
+            "{\"event\":\"fieldmesh_qpsk_modem_benchmark\",\"ok\":true,"
+            "\"hot_path_language\":\"c\",\"uses_python_modem\":false,"
+            "\"frame_bytes\":%zu,\"iq_bytes\":%zu,\"iterations\":%u,"
+            "\"samples_per_symbol\":%u,\"bit_repeat\":%u,"
+            "\"bits_per_symbol\":2,\"baseband_carrier_hz\":%.0f,"
             "\"encode_elapsed_us\":%lld,\"decode_elapsed_us\":%lld,"
             "\"encode_frame_kbps\":%llu,\"decode_frame_kbps\":%llu,"
             "\"sample_offset\":%u,\"chip_phase\":%u,\"bit_start\":%zu}\n",
@@ -3332,6 +3782,18 @@ int main(int argc, char **argv)
     }
     if (argc >= 2 && strcmp(argv[1], "--bpsk-decode") == 0) {
         return run_bpsk_decode(argc, argv);
+    }
+    if (argc >= 2 && strcmp(argv[1], "--qpsk-self-test") == 0) {
+        return run_qpsk_self_test();
+    }
+    if (argc >= 2 && strcmp(argv[1], "--qpsk-benchmark") == 0) {
+        return run_qpsk_benchmark(argc, argv);
+    }
+    if (argc >= 2 && strcmp(argv[1], "--qpsk-encode") == 0) {
+        return run_qpsk_encode(argc, argv);
+    }
+    if (argc >= 2 && strcmp(argv[1], "--qpsk-decode") == 0) {
+        return run_qpsk_decode(argc, argv);
     }
     if (argc >= 2 && strcmp(argv[1], "--bfsk-self-test") == 0) {
         return run_bfsk_self_test();

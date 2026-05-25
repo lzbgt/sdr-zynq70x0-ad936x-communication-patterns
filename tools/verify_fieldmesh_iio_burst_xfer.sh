@@ -38,6 +38,14 @@ if ! grep -q -- "--bpsk-benchmark" "$work_dir/help.txt"; then
   echo "fieldmesh_iio_burst_xfer help output is missing C BPSK benchmark contract" >&2
   exit 1
 fi
+if ! grep -q -- "--qpsk-encode" "$work_dir/help.txt"; then
+  echo "fieldmesh_iio_burst_xfer help output is missing C QPSK modem contract" >&2
+  exit 1
+fi
+if ! grep -q -- "--qpsk-benchmark" "$work_dir/help.txt"; then
+  echo "fieldmesh_iio_burst_xfer help output is missing C QPSK benchmark contract" >&2
+  exit 1
+fi
 if ! grep -q -- "--bfsk-benchmark" "$work_dir/help.txt"; then
   echo "fieldmesh_iio_burst_xfer help output is missing C BFSK benchmark contract" >&2
   exit 1
@@ -155,6 +163,25 @@ if report.get("frame_bytes", 0) <= 0 or report.get("iq_bytes", 0) <= 0:
     raise SystemExit(f"C BPSK self-test did not report useful byte counts: {report}")
 PY
 
+"$work_dir/fieldmesh_iio_burst_xfer" --qpsk-self-test \
+  >"$work_dir/qpsk_self_test.json"
+python3 - "$work_dir/qpsk_self_test.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report.get("event") != "fieldmesh_qpsk_modem_self_test" or report.get("ok") is not True:
+    raise SystemExit(f"C QPSK self-test failed: {report}")
+for key in ("base_ok", "phase_recovery_ok", "carrier_ok"):
+    if report.get(key) is not True:
+        raise SystemExit(f"C QPSK self-test did not prove {key}: {report}")
+if report.get("bits_per_symbol") != 2:
+    raise SystemExit(f"C QPSK self-test did not report 2 bits/symbol: {report}")
+if report.get("frame_bytes", 0) <= 0 or report.get("iq_bytes", 0) <= 0:
+    raise SystemExit(f"C QPSK self-test did not report useful byte counts: {report}")
+PY
+
 "$work_dir/fieldmesh_iio_burst_xfer" --bfsk-self-test \
   >"$work_dir/bfsk_self_test.json"
 python3 - "$work_dir/bfsk_self_test.json" <<'PY'
@@ -176,6 +203,12 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_000.bin" "$work_dir/frame.bin"
   --bit-repeat 2 \
   --iterations 50 \
   >"$work_dir/bpsk_benchmark.json"
+"$work_dir/fieldmesh_iio_burst_xfer" --qpsk-benchmark \
+  --frame-file "$work_dir/frame.bin" \
+  --samples-per-symbol 4 \
+  --bit-repeat 2 \
+  --iterations 50 \
+  >"$work_dir/qpsk_benchmark.json"
 "$work_dir/fieldmesh_iio_burst_xfer" --bfsk-benchmark \
   --frame-file "$work_dir/frame.bin" \
   --sample-rate-hz 1000000 \
@@ -185,7 +218,7 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_000.bin" "$work_dir/frame.bin"
   --bit-repeat 2 \
   --iterations 50 \
   >"$work_dir/bfsk_benchmark.json"
-python3 - "$work_dir/bpsk_benchmark.json" "$work_dir/bfsk_benchmark.json" <<'PY'
+python3 - "$work_dir/bpsk_benchmark.json" "$work_dir/bfsk_benchmark.json" "$work_dir/qpsk_benchmark.json" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -193,6 +226,7 @@ from pathlib import Path
 for path, event in (
     (Path(sys.argv[1]), "fieldmesh_bpsk_modem_benchmark"),
     (Path(sys.argv[2]), "fieldmesh_bfsk_modem_benchmark"),
+    (Path(sys.argv[3]), "fieldmesh_qpsk_modem_benchmark"),
 ):
     report = json.loads(path.read_text(encoding="utf-8"))
     if report.get("event") != event or report.get("ok") is not True:
@@ -266,22 +300,22 @@ cmp "$work_dir/frame.bin" "$work_dir/bpsk_carrier_decoded.bin"
   --bit-repeat 2 \
   >"$work_dir/bfsk_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/decoded.bin"
-"$work_dir/fieldmesh_iio_burst_xfer" --bpsk-encode \
+"$work_dir/fieldmesh_iio_burst_xfer" --qpsk-encode \
   --frame-file "$work_dir/frame.bin" \
   --iq-file "$work_dir/fast_frame.iq" \
   --sample-rate-hz 7680000 \
   --baseband-carrier-hz 100000 \
   --samples-per-symbol 1 \
   --bit-repeat 1 \
-  >"$work_dir/bpsk_fast_encode.json"
-"$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
+  >"$work_dir/qpsk_fast_encode.json"
+"$work_dir/fieldmesh_iio_burst_xfer" --qpsk-decode \
   --iq-file "$work_dir/fast_frame.iq" \
   --decoded-file "$work_dir/fast_decoded.bin" \
   --sample-rate-hz 7680000 \
   --baseband-carrier-hz 100000 \
   --samples-per-symbol 1 \
   --bit-repeat 1 \
-  >"$work_dir/bpsk_fast_decode.json"
+  >"$work_dir/qpsk_fast_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/fast_decoded.bin"
 
 python3 - "$work_dir/frame.bin" "$work_dir/bad_frame.bin" "$work_dir/frame_crc.txt" <<'PY'
@@ -410,7 +444,7 @@ if decode.get("event") != "fieldmesh_bpsk_modem_decode" or decode.get("ok") is n
 if decode.get("bit_start", 0) <= 0:
     raise SystemExit(f"C BPSK decoder did not skip the leading bad candidate: {decode}")
 PY
-python3 - "$work_dir/bfsk_encode.json" "$work_dir/bfsk_decode.json" "$work_dir/bpsk_fast_encode.json" "$work_dir/bpsk_fast_decode.json" <<'PY'
+python3 - "$work_dir/bfsk_encode.json" "$work_dir/bfsk_decode.json" "$work_dir/qpsk_fast_encode.json" "$work_dir/qpsk_fast_decode.json" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -425,17 +459,19 @@ if decode.get("event") != "fieldmesh_bfsk_modem_decode" or decode.get("ok") is n
     raise SystemExit(f"C BFSK decode failed: {decode}")
 if encode.get("frame_bytes") != decode.get("frame_bytes"):
     raise SystemExit(f"C BFSK encode/decode byte counts differ: {encode} {decode}")
-if fast_encode.get("event") != "fieldmesh_bpsk_modem_encode" or fast_encode.get("ok") is not True:
-    raise SystemExit(f"C fast BPSK encode failed: {fast_encode}")
-if fast_decode.get("event") != "fieldmesh_bpsk_modem_decode" or fast_decode.get("ok") is not True:
-    raise SystemExit(f"C fast BPSK decode failed: {fast_decode}")
+if fast_encode.get("event") != "fieldmesh_qpsk_modem_encode" or fast_encode.get("ok") is not True:
+    raise SystemExit(f"C fast QPSK encode failed: {fast_encode}")
+if fast_decode.get("event") != "fieldmesh_qpsk_modem_decode" or fast_decode.get("ok") is not True:
+    raise SystemExit(f"C fast QPSK decode failed: {fast_decode}")
 if fast_encode.get("samples_per_symbol") != 1 or fast_encode.get("bit_repeat") != 1:
-    raise SystemExit(f"C fast BPSK profile drifted: {fast_encode}")
+    raise SystemExit(f"C fast QPSK profile drifted: {fast_encode}")
 if fast_decode.get("samples_per_symbol") != 1 or fast_decode.get("bit_repeat") != 1:
-    raise SystemExit(f"C fast BPSK decoder profile drifted: {fast_decode}")
-raw_bitrate_bps = 7_680_000 / (fast_encode["samples_per_symbol"] * fast_encode["bit_repeat"])
-if raw_bitrate_bps < 7_680_000:
-    raise SystemExit(f"C fast BPSK raw PHY target regressed: {raw_bitrate_bps}")
+    raise SystemExit(f"C fast QPSK decoder profile drifted: {fast_decode}")
+if fast_encode.get("bits_per_symbol") != 2 or fast_decode.get("bits_per_symbol") != 2:
+    raise SystemExit(f"C fast QPSK bits/symbol proof drifted: {fast_encode} {fast_decode}")
+raw_bitrate_bps = 7_680_000 * 2 / (fast_encode["samples_per_symbol"] * fast_encode["bit_repeat"])
+if raw_bitrate_bps < 15_360_000:
+    raise SystemExit(f"C fast QPSK raw PHY target regressed: {raw_bitrate_bps}")
 PY
 
 python3 - "$work_dir/bfsk_decode_after_bad_crc.json" <<'PY'
@@ -590,6 +626,11 @@ required = [
     "fieldmesh_bpsk_modem_encode",
     "fieldmesh_bpsk_modem_decode",
     "fieldmesh_bpsk_modem_self_test",
+    "fieldmesh_qpsk_modem_encode",
+    "fieldmesh_qpsk_modem_decode",
+    "fieldmesh_qpsk_modem_self_test",
+    "qpsk_decode_frame_coherent",
+    "project_qpsk_bits",
     "phase_recovery_ok",
     "carrier_ok",
     "--baseband-carrier-hz",

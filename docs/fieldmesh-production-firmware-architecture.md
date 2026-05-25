@@ -126,7 +126,7 @@ Responsibilities:
 - Select MCS/FEC/retry policy from link metrics. The current native RF service
   policy already proves the first adaptive modem decision boundary: fast-primary
   PHY evidence requires primary decode success, no retry use, and effective raw
-  rate at or above 6 Mbit/s, while retry fallback is classified separately.
+  rate at or above 12 Mbit/s, while retry fallback is classified separately.
   The native policy also accepts measured decode-quality counters and only
   selects fast primary after at least four zero-PER primary decode attempts.
   The live RF worker bridge now posts decode/PER deltas into the state daemon,
@@ -666,7 +666,7 @@ packet pipeline.
 ## Migration Plan
 
 1. Freeze the binary frame and descriptor ABI with C vector tests.
-2. Keep BPSK/BFSK packet encode/decode primitives in compiled C helper code;
+2. Keep BPSK/QPSK/BFSK packet encode/decode primitives in compiled C helper code;
    the current low-memory verifier checks C encode/decode, BFSK
    prefix-accumulator tone detection, recovery after CRC-wrong sync candidates,
    and C-only encode/decode service-rate benchmarks.

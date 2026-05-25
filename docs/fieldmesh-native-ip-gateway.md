@@ -384,16 +384,16 @@ Minimum production gates for native TCP/IP:
   48-sample/repeat-3 modem profile reduced many batch times to roughly 0.8-1.3
   seconds but initially produced an intermittent reverse-path CRC miss under
   load and still did not complete `iperf3`. The current fast profile is
-  BPSK 1-sample/repeat-1 in both directions at 7.68 Msps with a 5 MHz RF
-  bandwidth default, raising the raw modem PHY ceiling to 7.68 Mbit/s while
+  QPSK 1-sample/repeat-1 in both directions at 7.68 Msps with a 5 MHz RF
+  bandwidth default, raising the raw modem PHY ceiling to 15.36 Mbit/s while
   keeping 32-sample/repeat-2 as the stronger retry profile. Production evidence
-  requires at least 6 Mbit/s minimum raw modem PHY rate and fast-primary decode
+  requires at least 12 Mbit/s minimum raw modem PHY rate and fast-primary decode
   success in both directions. If the
   modem retry fallback is selected, the archive reports the lower effective PHY
   rate instead of claiming the primary rate. The state daemon now proves that
   decision through the shared C RF
   service policy: `fast_primary` is accepted only with primary decode success,
-  no retry use, and effective raw rate at or above 6 Mbit/s; `retry_fallback`
+  no retry use, and effective raw rate at or above 12 Mbit/s; `retry_fallback`
   is preserved as a stronger decode option but rejected as high-rate PHY proof.
   The policy also has a measured-quality gate: at least four primary decode
   attempts with zero primary PER/CRC failures and no retry attempts are required
@@ -518,10 +518,10 @@ Minimum production gates for native TCP/IP:
   run with stale frames.
   The first clean UDP-only continuation run showed the old symmetric BFSK
   profile was still too slow for throughput. The current local C modem profile
-  raises the symmetric fast software path: both directions use BPSK with
+  raises the symmetric fast software path: both directions use QPSK with
   `samples_per_symbol=1`, `bit_repeat=1` at the 7.68 Msps native-IP IIO
   sample rate with 5 MHz RF bandwidth, lifting the raw modem PHY ceiling to
-  7.68 Mbit/s before MAC/IP overhead. A stronger `samples_per_symbol=32`,
+  15.36 Mbit/s before MAC/IP overhead. A stronger `samples_per_symbol=32`,
   `bit_repeat=2` retry profile
   remains available after a decode miss. Production reports
   must now carry the native adaptive modem profile policy proof so a retry

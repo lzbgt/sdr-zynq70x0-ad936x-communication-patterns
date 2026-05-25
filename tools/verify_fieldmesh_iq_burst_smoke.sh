@@ -38,10 +38,10 @@ if report["encoding"].get("uses_c_modem_helper") is not True:
     raise SystemExit("IQ burst smoke did not use the C modem helper")
 if report["encoding"].get("uses_python_modem") is not False:
     raise SystemExit("IQ burst smoke must not use Python modem primitives by default")
-if report["encoding"].get("modem_helper_event_encode") != "fieldmesh_bpsk_modem_encode":
-    raise SystemExit("IQ burst smoke missing C BPSK encode evidence")
-if report["encoding"].get("modem_helper_event_decode") != "fieldmesh_bpsk_modem_decode":
-    raise SystemExit("IQ burst smoke missing C BPSK decode evidence")
+if report["encoding"].get("modem_helper_event_encode") != "fieldmesh_qpsk_modem_encode":
+    raise SystemExit("IQ burst smoke missing C QPSK encode evidence")
+if report["encoding"].get("modem_helper_event_decode") != "fieldmesh_qpsk_modem_decode":
+    raise SystemExit("IQ burst smoke missing C QPSK decode evidence")
 iq_file = Path(report["encoding"]["iq_file"])
 if not iq_file.exists() or iq_file.stat().st_size <= 0:
     raise SystemExit("missing IQ sample output")

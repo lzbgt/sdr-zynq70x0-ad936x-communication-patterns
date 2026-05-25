@@ -693,6 +693,8 @@ def helper_supports_c_modem(helper: Path) -> bool:
     required = (
         "--bpsk-encode",
         "--bpsk-decode",
+        "--qpsk-encode",
+        "--qpsk-decode",
         "--bfsk-encode",
         "--bfsk-decode",
         "--baseband-carrier-hz",
@@ -776,7 +778,7 @@ def resolve_modem_helper(args: argparse.Namespace) -> Path:
 
 def run_c_modem_roundtrip(args: argparse.Namespace, frame_crc: int) -> tuple[bytes, bytes, dict[str, Any], dict[str, Any], Path]:
     helper = resolve_modem_helper(args)
-    iq_path = args.out_dir / "fieldmesh_bpsk_burst_i16le.iq"
+    iq_path = args.out_dir / f"fieldmesh_{args.modulation}_burst_i16le.iq"
     decoded_path = args.out_dir / "fieldmesh_iq_burst_decoded.bin"
     encode_cmd = [
         str(helper),
@@ -857,6 +859,8 @@ def run_python_modem_roundtrip(args: argparse.Namespace, frame: bytes) -> tuple[
         if decoded.get("ok") is not True:
             raise SystemExit(f"local BFSK decode failed: {decoded}")
         recovered = decoded["recovered"]
+    elif args.modulation == "qpsk":
+        raise SystemExit("QPSK is C-only; Python modem fallback is not allowed for performance profiles")
     else:
         iq = encode_bpsk_iq(
             payload,
@@ -895,12 +899,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         iq, recovered, c_encode, c_decode, modem_helper = run_c_modem_roundtrip(args, frame_crc)
         uses_c_modem_helper = True
         uses_python_modem = False
-    encoding_name = "fieldmesh_bfsk_i16le_v1" if args.modulation == "bfsk" else "fieldmesh_bpsk_nrz_i16le_v1"
+    encoding_name = (
+        "fieldmesh_bfsk_i16le_v1"
+        if args.modulation == "bfsk"
+        else (
+            "fieldmesh_qpsk_i16le_v1"
+            if args.modulation == "qpsk"
+            else "fieldmesh_bpsk_nrz_i16le_v1"
+        )
+    )
     recovered_parsed = frame_metadata(recovered)
     if recovered != frame:
         raise SystemExit("decoded IQ burst did not reproduce the input FieldMesh frame")
 
-    iq_path = args.out_dir / "fieldmesh_bpsk_burst_i16le.iq"
+    iq_path = args.out_dir / f"fieldmesh_{args.modulation}_burst_i16le.iq"
     if uses_python_modem or not iq_path.exists():
         iq_path.write_bytes(iq)
 
@@ -978,7 +990,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rf-bandwidth-hz", type=int, required=True)
     parser.add_argument("--fixture-attenuation-db", type=float, required=True)
     parser.add_argument("--samples-per-symbol", type=int, default=8)
-    parser.add_argument("--modulation", choices=["bpsk", "bfsk"], default="bpsk")
+    parser.add_argument("--modulation", choices=["bpsk", "qpsk", "bfsk"], default="qpsk")
     parser.add_argument("--baseband-carrier-hz", type=int, default=0)
     parser.add_argument("--bfsk-space-hz", type=int, default=DEFAULT_BFSK_SPACE_HZ)
     parser.add_argument("--bfsk-mark-hz", type=int, default=DEFAULT_BFSK_MARK_HZ)

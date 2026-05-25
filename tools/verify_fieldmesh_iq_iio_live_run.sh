@@ -128,8 +128,8 @@ capture = Path(smoke["encoding"]["iq_file"])
 decoded = live.decode_capture(plan, args, capture)
 if decoded.get("ok") is not True:
     raise SystemExit(f"C live-run capture decode failed: {decoded}")
-if decoded.get("decoder") != "fieldmesh_iio_burst_xfer_c_bpsk":
-    raise SystemExit(f"live-run decode did not use C BPSK helper: {decoded}")
+if decoded.get("decoder") != "fieldmesh_iio_burst_xfer_c_qpsk":
+    raise SystemExit(f"live-run decode did not use C QPSK helper: {decoded}")
 if decoded.get("recovered_frame_crc") != plan["iq_burst"]["frame_crc"]:
     raise SystemExit(f"live-run decode CRC mismatch: {decoded}")
 print(json.dumps({

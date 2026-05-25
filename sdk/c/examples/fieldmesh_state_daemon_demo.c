@@ -3611,9 +3611,9 @@ static int build_response(fieldmesh_context_t *context,
         int production_iio_policy =
             fieldmesh_rf_service_policy_accepts_production_iio(&policy);
         fieldmesh_rf_modem_profile_decision_t fast_profile_decision =
-            fieldmesh_rf_modem_profile_decide(7680000u, 7680000u, 1u, 0u);
+            fieldmesh_rf_modem_profile_decide(15360000u, 15360000u, 1u, 0u);
         fieldmesh_rf_modem_profile_decision_t retry_profile_decision =
-            fieldmesh_rf_modem_profile_decide(7680000u, 48000u, 0u, 1u);
+            fieldmesh_rf_modem_profile_decide(15360000u, 48000u, 0u, 1u);
         fieldmesh_rf_modem_profile_quality_t fast_quality = {
             4u, 4u, 0u, 0u, 0u, 0u
         };
@@ -3625,13 +3625,13 @@ static int build_response(fieldmesh_context_t *context,
         };
         fieldmesh_rf_modem_profile_decision_t fast_quality_decision =
             fieldmesh_rf_modem_profile_decide_from_quality(
-                7680000u, 7680000u, &fast_quality);
+                15360000u, 15360000u, &fast_quality);
         fieldmesh_rf_modem_profile_decision_t retry_quality_decision =
             fieldmesh_rf_modem_profile_decide_from_quality(
-                7680000u, 48000u, &retry_quality);
+                15360000u, 48000u, &retry_quality);
         fieldmesh_rf_modem_profile_decision_t insufficient_quality_decision =
             fieldmesh_rf_modem_profile_decide_from_quality(
-                7680000u, 7680000u, &insufficient_quality);
+                15360000u, 15360000u, &insufficient_quality);
 
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_rf_service_policy_self_test\","
@@ -3728,9 +3728,9 @@ static int build_response(fieldmesh_context_t *context,
                  fieldmesh_rf_modem_profile_decision_name(
                      retry_profile_decision),
                 fieldmesh_rf_modem_profile_high_rate_proven(
-                    7680000u, 7680000u, 1u, 0u) ? 1u : 0u,
+                    15360000u, 15360000u, 1u, 0u) ? 1u : 0u,
                 fieldmesh_rf_modem_profile_high_rate_proven(
-                    7680000u, 48000u, 0u, 1u) ? 1u : 0u,
+                    15360000u, 48000u, 0u, 1u) ? 1u : 0u,
                  (unsigned)FIELDMESH_RF_MODEM_PROFILE_FAST_MIN_DECODE_ATTEMPTS,
                  (unsigned)FIELDMESH_RF_MODEM_PROFILE_FAST_MAX_PRIMARY_PER_MILLE,
                  (unsigned)fieldmesh_rf_modem_profile_per_mille(
@@ -4148,7 +4148,7 @@ static int build_response(fieldmesh_context_t *context,
                                      0u, 1u, &direct_p2p) ||
             !request_uint_or_default(request, "ap_relay_fallback=", 1u,
                                      0u, 1u, &ap_relay_fallback) ||
-            !request_text_or_default(request, "modulation=", "BPSK",
+            !request_text_or_default(request, "modulation=", "QPSK",
                                      modulation, sizeof(modulation)) ||
             !request_text_or_default(request, "fec=", "LDPC",
                                      fec, sizeof(fec)) ||
@@ -11027,7 +11027,7 @@ static int query_state(const char *host,
         query_once(sockfd, &dst,
                    "FIELDMESH_RADIO_CONFIG_PLAN v1 "
                    "frequency_mhz=2400 channel=1 bandwidth_khz=5000 "
-                   "sample_rate_ksps=7680 modulation=BPSK fec=LDPC "
+                   "sample_rate_ksps=7680 modulation=QPSK fec=LDPC "
                    "adaptive_mcs=1 direct_p2p=1 ap_relay_fallback=1") == 0 &&
         query_once(sockfd, &dst, mac_ingest_request) == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_AP_BROWSE v1") == 0 &&

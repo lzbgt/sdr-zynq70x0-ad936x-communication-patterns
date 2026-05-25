@@ -3967,7 +3967,7 @@ Result:
 
 ```json
 {"commands": 8, "event": "fieldmesh_iq_iio_live_run_check", "mode": "dry-run", "ok": true, "rx_board": "z103", "tx_board": "z203"}
-{"decoder": "fieldmesh_iio_burst_xfer_c_bpsk", "event": "fieldmesh_iq_iio_live_run_c_decode_check", "ok": true, "recovered_frame_crc": 2646482743}
+{"decoder": "fieldmesh_iio_burst_xfer_c_qpsk", "event": "fieldmesh_iq_iio_live_run_c_decode_check", "ok": true, "recovered_frame_crc": 2646482743}
 {"blocked_decoder": "fieldmesh_iio_burst_xfer_c_required", "event": "fieldmesh_iq_iio_live_run_c_decode_required_check", "ok": true}
 ```
 

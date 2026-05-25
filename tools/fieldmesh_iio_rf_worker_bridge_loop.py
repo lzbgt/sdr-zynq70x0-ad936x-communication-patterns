@@ -1987,11 +1987,17 @@ def direction_retry_bit_repeat(args: argparse.Namespace, direction_name: str) ->
     return None
 
 
-def modem_raw_bitrate_bps(sample_rate_hz: int, samples_per_symbol: int, bit_repeat: int) -> float:
+def modem_raw_bitrate_bps(
+    sample_rate_hz: int,
+    samples_per_symbol: int,
+    bit_repeat: int,
+    modulation: str = "bpsk",
+) -> float:
     modem_samples_per_bit = samples_per_symbol * bit_repeat
     if modem_samples_per_bit <= 0:
         return 0.0
-    return float(sample_rate_hz) / float(modem_samples_per_bit)
+    bits_per_symbol = 2.0 if modulation == "qpsk" else 1.0
+    return float(sample_rate_hz) * bits_per_symbol / float(modem_samples_per_bit)
 
 
 def modem_retry_configured(args: argparse.Namespace, direction_name: str) -> bool:
@@ -2012,6 +2018,7 @@ def direction_phy_raw_bitrate_bps(args: argparse.Namespace, direction_name: str)
         args.sample_rate_hz,
         direction_samples_per_symbol(args, direction_name),
         direction_bit_repeat(args, direction_name),
+        args.modulation,
     )
 
 
@@ -2211,6 +2218,7 @@ def run_batch(
         args.sample_rate_hz,
         primary_samples_per_symbol,
         primary_bit_repeat,
+        args.modulation,
     )
     pre_burst_mcs_decision_report: dict[str, Any] = {}
     pre_burst_mcs_decision = "hold"
@@ -2402,6 +2410,7 @@ def run_batch(
         args.sample_rate_hz,
         effective_samples_per_symbol,
         effective_bit_repeat,
+        args.modulation,
     )
     primary_modem_decode_ok = any(
         attempt.get("label") == "primary" and attempt.get("ok") is True
@@ -2540,7 +2549,7 @@ def run_batch(
             adaptive_mcs_decision_report.get("high_rate_proven") == 1
         ),
         "fast_primary_phy_decode_proven": bool(
-            primary_modem_decode_ok and primary_raw_bitrate_bps >= 6_000_000.0
+            primary_modem_decode_ok and primary_raw_bitrate_bps >= 12_000_000.0
         ),
         "iq_burst_report": str(iq_report_path),
         "iq_iio_live_plan": str(plan_path),
@@ -4919,7 +4928,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rf-bandwidth-hz", type=int, default=5000000)
     parser.add_argument("--fixture-attenuation-db", type=float, default=60.0)
     parser.add_argument("--samples-per-symbol", type=int, default=1)
-    parser.add_argument("--modulation", choices=["bpsk", "bfsk"], default="bpsk")
+    parser.add_argument("--modulation", choices=["bpsk", "qpsk", "bfsk"], default="qpsk")
     parser.add_argument("--baseband-carrier-hz", type=int, default=100000)
     parser.add_argument("--bfsk-space-hz", type=int, default=50000)
     parser.add_argument("--bfsk-mark-hz", type=int, default=150000)
