@@ -34,6 +34,7 @@ case "$variant" in
   z103)
     fieldmesh_set_jtag_defaults z103
     export JTAG_PS_RESET="${JTAG_PS_RESET:-0}"
+    export ADAPTER_SPEED="${ADAPTER_SPEED:-8000}"
     fieldmesh_resolve_image_paths z103 "$repo_root"
     deploy_dir="$FIELDMESH_DEPLOY_DIR"
     linux_root="${LINUX_ROOT:-$repo_root/src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/linux}"

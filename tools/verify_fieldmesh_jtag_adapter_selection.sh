@@ -56,6 +56,7 @@ for token in [
     'if [[ "$variant" == "z103" ]]',
     "fieldmesh_run_zynq_dap_halt_preflight",
     'export JTAG_PS_RESET="${JTAG_PS_RESET:-0}"',
+    'export ADAPTER_SPEED="${ADAPTER_SPEED:-8000}"',
 ]:
     if token not in generic_ram:
         missing.append(f"run_fieldmesh_jtag_yocto_ram.sh missing Z103 DAP preflight token: {token}")
