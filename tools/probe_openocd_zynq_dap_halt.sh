@@ -59,6 +59,7 @@ adapter speed $adapter_speed
 $no_gdb_tcl
 transport select jtag
 source [find target/zynq_7000.cfg]
+adapter speed $adapter_speed
 init
 scan_chain
 targets zynq.cpu0

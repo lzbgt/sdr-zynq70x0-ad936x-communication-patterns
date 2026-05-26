@@ -23,6 +23,7 @@ openocd -s /usr/share/openocd/scripts -c "
   $no_gdb_tcl
   transport select jtag
   source [find target/zynq_7000.cfg]
+adapter speed $adapter_speed
   init
   scan_chain
   shutdown

@@ -1883,11 +1883,15 @@ Verified so far:
   DAP-halt preflight. The volatile SLCR PS reset goes through the same DAP path
   that can wedge this board, so the safe Z103 recovery flow is physical
   JTAG-mode power cycle, DAP preflight, then direct PS7 init and payload load.
-  The Z103 RAM-boot wrapper also defaults `ADAPTER_SPEED=8000` so the 22 MiB
-  initramfs is not transferred over the slow 1 MHz JTAG path. It now builds a
-  transient stripped JTAG rootfs for RAM boot that preserves USB Ethernet, SSH,
-  IIO, FieldMesh daemon tools, and `iperf3`, while omitting mass-storage and
-  udev hardware-database payloads that do not affect RF/IP `iperf`. Use
+  The Z103 RAM-boot wrapper also defaults `ADAPTER_SPEED=8000` so the original
+  22 MiB initramfs is not transferred over the slow 1 MHz JTAG path. OpenOCD
+  helpers reapply the selected speed after sourcing `target/zynq_7000.cfg`,
+  because that target file resets the adapter speed to 1 MHz internally. It
+  now builds a transient stripped JTAG rootfs for RAM boot that preserves USB
+  Ethernet, SSH, IIO, FieldMesh daemon tools, and `iperf3`, while omitting
+  mass-storage, udev hardware-database, Wi-Fi, Bluetooth, NFC, ofono,
+  lighttpd/web, and UI library payloads that do not affect RF/IP `iperf`. The
+  current prepared Z103 RAM-boot initramfs is about 9.9 MiB. Use
   `JTAG_PS_RESET=1` only for a deliberate reset experiment.
 - USB console capture from the JTAG-loaded U-Boot path showed U-Boot starting,
   detecting 1 GiB DDR, detecting QSPI flash, and entering the Pluto U-Boot boot

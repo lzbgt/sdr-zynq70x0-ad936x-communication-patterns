@@ -36,6 +36,9 @@ for rel in openocd_scripts:
         missing.append(f"{rel}: does not emit board-selective adapter serial Tcl")
     if "adapter speed $adapter_speed" not in text:
         missing.append(f"{rel}: adapter speed is not environment-bound")
+    source_idx = text.find("source [find target/zynq_7000.cfg]")
+    if source_idx >= 0 and "adapter speed $adapter_speed" not in text[source_idx:source_idx + 96]:
+        missing.append(f"{rel}: does not reapply adapter speed after zynq_7000.cfg")
     if "fieldmesh_openocd_no_gdb_tcl" not in text:
         missing.append(f"{rel}: does not disable OpenOCD GDB port binding")
 
@@ -72,6 +75,11 @@ for token in [
     "usr/sbin/iiod",
     "opt/vfat.img",
     "etc/udev/hwdb.bin",
+    "etc/init.d/bluetooth",
+    "usr/sbin/wpa_supplicant",
+    "usr/sbin/lighttpd",
+    "usr/lib/libstdc++.so",
+    "readelf -d",
 ]:
     if token not in fast_rootfs:
         missing.append(f"build_fieldmesh_jtag_fast_rootfs.sh missing token: {token}")

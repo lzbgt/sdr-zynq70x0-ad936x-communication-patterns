@@ -46,6 +46,73 @@ rm -rf "$work_dir/root/usr/share/locale"
 rm -rf "$work_dir/root/usr/share/mime"
 rm -rf "$work_dir/root/usr/share/mobile-broadband-provider-info"
 
+# Remove interactive/user-facing services from the transient RAM image. The
+# JTAG boot payload only needs USB Ethernet, SSH, IIO, FieldMesh C tools, and
+# iperf; keeping Wi-Fi/Bluetooth/NFC/ofono/web/mass-storage services only
+# slows the RAM load and boot path used for RF bandwidth measurement.
+rm -f "$work_dir/root/etc/init.d/S45msd"
+rm -f "$work_dir/root/etc/init.d/bluetooth"
+rm -f "$work_dir/root/etc/init.d/lighttpd"
+rm -f "$work_dir/root/etc/init.d/neard"
+rm -f "$work_dir/root/etc/init.d/ofono"
+rm -f "$work_dir/root/etc/rc"?.d/*bluetooth
+rm -f "$work_dir/root/etc/rc"?.d/*lighttpd
+rm -f "$work_dir/root/etc/rc"?.d/*neard
+rm -f "$work_dir/root/etc/rc"?.d/*ofono
+rm -f "$work_dir/root/etc/network/if-pre-up.d/wpa-supplicant"
+rm -f "$work_dir/root/etc/network/if-post-down.d/wpa-supplicant"
+rm -f "$work_dir/root/etc/default/volatiles/99_wpa_supplicant"
+rm -f "$work_dir/root/etc/dbus-1/system.d/dbus-wpa_supplicant.conf"
+rm -f "$work_dir/root/etc/dbus-1/system.d/ofono.conf"
+rm -f "$work_dir/root/etc/dbus-1/system.d/org.neard.conf"
+rm -f "$work_dir/root/usr/share/dbus-1/system.d/bluetooth.conf"
+rm -f "$work_dir/root/usr/share/dbus-1/system-services/fi.w1.wpa_supplicant1.service"
+rm -rf "$work_dir/root/etc/bluetooth"
+rm -rf "$work_dir/root/etc/lighttpd" "$work_dir/root/etc/lighttpd.d"
+rm -rf "$work_dir/root/etc/ofono"
+rm -rf "$work_dir/root/etc/wpa_supplicant" "$work_dir/root/etc/wpa_supplicant.conf"
+rm -rf "$work_dir/root/usr/lib/lighttpd"
+rm -rf "$work_dir/root/usr/libexec/bluetooth"
+rm -rf "$work_dir/root/usr/libexec/gio-launch-desktop"
+rm -rf "$work_dir/root/usr/libexec/gio-querymodules"
+rm -rf "$work_dir/root/usr/libexec/nfc"
+rm -rf "$work_dir/root/usr/lib/gio"
+rm -rf "$work_dir/root/usr/share/glib-2.0"
+rm -rf "$work_dir/root/usr/share/ofono"
+rm -rf "$work_dir/root/www"
+rm -f "$work_dir/root/usr/bin/bluemoon"
+rm -f "$work_dir/root/usr/bin/bluetoothctl"
+rm -f "$work_dir/root/usr/bin/btattach"
+rm -f "$work_dir/root/usr/bin/btmon"
+rm -f "$work_dir/root/usr/bin/ciptool"
+rm -f "$work_dir/root/usr/bin/hciattach"
+rm -f "$work_dir/root/usr/bin/hciconfig"
+rm -f "$work_dir/root/usr/bin/hcidump"
+rm -f "$work_dir/root/usr/bin/hcitool"
+rm -f "$work_dir/root/usr/bin/isotest"
+rm -f "$work_dir/root/usr/bin/l2ping"
+rm -f "$work_dir/root/usr/bin/l2test"
+rm -f "$work_dir/root/usr/bin/mpris-proxy"
+rm -f "$work_dir/root/usr/bin/nfctool"
+rm -f "$work_dir/root/usr/bin/rctest"
+rm -f "$work_dir/root/usr/bin/rfcomm"
+rm -f "$work_dir/root/usr/bin/sdptool"
+rm -f "$work_dir/root/usr/sbin/lighttpd"
+rm -f "$work_dir/root/usr/sbin/lighttpd-angel"
+rm -f "$work_dir/root/usr/sbin/ofonod"
+rm -f "$work_dir/root/usr/sbin/iw"
+rm -f "$work_dir/root/usr/sbin/wpa_cli"
+rm -f "$work_dir/root/usr/sbin/wpa_passphrase"
+rm -f "$work_dir/root/usr/sbin/wpa_supplicant"
+rm -f "$work_dir/root/usr/lib/libbluetooth.so"*
+rm -f "$work_dir/root/usr/lib/libell.so"*
+rm -f "$work_dir/root/usr/lib/libgio-2.0.so"*
+rm -f "$work_dir/root/usr/lib/libglib-2.0.so"*
+rm -f "$work_dir/root/usr/lib/libgobject-2.0.so"*
+rm -f "$work_dir/root/usr/lib/libstdc++.so"*
+rm -f "$work_dir/root/usr/lib/libX11.so"*
+rm -f "$work_dir/root/usr/lib/libxcb.so"*
+
 required_paths=(
   bin/busybox
   etc/init.d/S23udc
@@ -64,6 +131,25 @@ for path in "${required_paths[@]}"; do
     exit 1
   fi
 done
+
+if command -v readelf >/dev/null 2>&1; then
+  for path in "${required_paths[@]}"; do
+    if [[ ! -f "$work_dir/root/$path" ]]; then
+      continue
+    fi
+    while read -r lib; do
+      if [[ -z "$lib" ]]; then
+        continue
+      fi
+      if ! find "$work_dir/root/lib" "$work_dir/root/usr/lib" -maxdepth 1 \
+          \( -name "$lib" -o -name "$lib.*" \) -print -quit | grep -q .; then
+        echo "Fast JTAG rootfs stripped dependency needed by /$path: $lib" >&2
+        exit 1
+      fi
+    done < <(readelf -d "$work_dir/root/$path" 2>/dev/null |
+      sed -n 's/.*Shared library: \[\(.*\)\].*/\1/p')
+  done
+fi
 
 tmp_out="$out.tmp.$$"
 (

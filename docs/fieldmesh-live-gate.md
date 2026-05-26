@@ -120,10 +120,14 @@ preflight. The SLCR/DAP soft-reset helper can itself wedge the Z103 debug port,
 so the safe live sequence is physical JTAG-mode power cycle, DAP preflight,
 then direct PS7 init and payload load. The Z103 wrapper also defaults
 `ADAPTER_SPEED=8000` so the kernel and initramfs are not moved over the slow
-1 MHz JTAG path. For RAM boot only, it builds a stripped transient rootfs that
+1 MHz JTAG path. The OpenOCD helpers reapply this speed after sourcing
+`target/zynq_7000.cfg`, because that upstream target file resets the adapter to
+1 MHz internally. For RAM boot only, it builds a stripped transient rootfs that
 keeps USB Ethernet, SSH, IIO, FieldMesh daemon tools, and `iperf3`, but removes
-large mass-storage and udev database payloads that are irrelevant to RF
-bandwidth measurement. Set `JTAG_PS_RESET=1` only for a deliberate reset
+large mass-storage, udev database, Wi-Fi, Bluetooth, NFC, ofono, lighttpd/web,
+and UI library payloads that are irrelevant to RF bandwidth measurement. The
+current prepared Z103 RAM-boot initramfs is about 9.9 MiB instead of the
+original 22 MiB image. Set `JTAG_PS_RESET=1` only for a deliberate reset
 experiment.
 
 If RAM boot succeeds but sidecar preflight fails, keep the full live-gate

@@ -106,6 +106,7 @@ adapter speed $adapter_speed
 $(fieldmesh_openocd_no_gdb_tcl)
 transport select jtag
 source [find target/zynq_7000.cfg]
+adapter speed $adapter_speed
 init
 targets zynq.cpu0
 halt
