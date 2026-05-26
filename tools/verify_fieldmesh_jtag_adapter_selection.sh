@@ -57,9 +57,24 @@ for token in [
     "fieldmesh_run_zynq_dap_halt_preflight",
     'export JTAG_PS_RESET="${JTAG_PS_RESET:-0}"',
     'export ADAPTER_SPEED="${ADAPTER_SPEED:-8000}"',
+    "build_fieldmesh_jtag_fast_rootfs.sh",
+    "FIELDMESH_JTAG_FAST_ROOTFS",
 ]:
     if token not in generic_ram:
         missing.append(f"run_fieldmesh_jtag_yocto_ram.sh missing Z103 DAP preflight token: {token}")
+
+fast_rootfs = (repo / "tools/build_fieldmesh_jtag_fast_rootfs.sh").read_text(encoding="utf-8")
+for token in [
+    "fieldmesh_jtag_fast_rootfs",
+    "production_rootfs_modified",
+    "usr/bin/iperf3",
+    "usr/bin/fieldmesh-state-daemon-demo",
+    "usr/sbin/iiod",
+    "opt/vfat.img",
+    "etc/udev/hwdb.bin",
+]:
+    if token not in fast_rootfs:
+        missing.append(f"build_fieldmesh_jtag_fast_rootfs.sh missing token: {token}")
 
 for rel in [
     "tools/run_openocd_z103_jtag_uboot.sh",

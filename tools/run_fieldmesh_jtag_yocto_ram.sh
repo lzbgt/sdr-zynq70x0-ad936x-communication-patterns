@@ -45,6 +45,11 @@ case "$variant" in
     rootfs="$FIELDMESH_ROOTFS_CPIO_GZ"
     out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/jtag-ram-boot-z103}"
     bootargs="${BOOTARGS:-console=ttyPS0,115200 maxcpus=1 rootfstype=ramfs root=/dev/ram0 rw earlyprintk clk_ignore_unused uboot=fieldmesh-z103-jtag-ram}"
+    if [[ "${FIELDMESH_JTAG_FAST_ROOTFS:-1}" == "1" && -z "${ROOTFS_CPIO_GZ:-}" ]]; then
+      fast_rootfs="${FIELDMESH_JTAG_FAST_ROOTFS_OUT:-$repo_root/.config/fieldmesh/z103-jtag-fast-rootfs.cpio.gz}"
+      "$repo_root/tools/build_fieldmesh_jtag_fast_rootfs.sh" z103 "$fast_rootfs" >/dev/null
+      rootfs="$fast_rootfs"
+    fi
     ;;
   *)
     echo "usage: $0 [z203|z103]" >&2

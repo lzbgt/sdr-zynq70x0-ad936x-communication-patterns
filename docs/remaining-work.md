@@ -1884,7 +1884,10 @@ Verified so far:
   that can wedge this board, so the safe Z103 recovery flow is physical
   JTAG-mode power cycle, DAP preflight, then direct PS7 init and payload load.
   The Z103 RAM-boot wrapper also defaults `ADAPTER_SPEED=8000` so the 22 MiB
-  initramfs is not transferred over the slow 1 MHz JTAG path. Use
+  initramfs is not transferred over the slow 1 MHz JTAG path. It now builds a
+  transient stripped JTAG rootfs for RAM boot that preserves USB Ethernet, SSH,
+  IIO, FieldMesh daemon tools, and `iperf3`, while omitting mass-storage and
+  udev hardware-database payloads that do not affect RF/IP `iperf`. Use
   `JTAG_PS_RESET=1` only for a deliberate reset experiment.
 - USB console capture from the JTAG-loaded U-Boot path showed U-Boot starting,
   detecting 1 GiB DDR, detecting QSPI flash, and entering the Pluto U-Boot boot
