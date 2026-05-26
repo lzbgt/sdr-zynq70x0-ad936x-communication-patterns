@@ -584,13 +584,20 @@ devicetree.dtb     6e3292478c9c3dd201c179fc78ad05531966b1a5671ceb45dc527ca25b487
 The current timing-clean lean Z103 RF-engine build artifacts are:
 
 ```text
-system_top.bit  adb9f423067eaf8f93ad601eecd80c55ca45a01c59718a16956d4d0c27897008
-system_top.xsa  9365346a47e705aac16779e8542aa5aaea56e4b38ac39f3d0b166453f67602fd
+system_top.bit  ff4b738bd16cfec715a95babf558effdcd1eb4f5332fd65169d09a74b6f80d83
+system_top.xsa  851330eaa110787fa58963c6b89d4ef1c8e528aa30ee0a36152a17261af64aab
 ```
 
 The matching canonical Z103 runtime package is
 `.config/fieldmesh/runtime-package-z103/fit-work/build/pluto.frm` with SHA-256
-`7f0fd29573d2c74ff1ea4115f421357dbd88c1701f8de56470f4fb92fe60359a`.
+`4344ec56ce45607846a06582180e58ebc7e59580907be7e78cd38f3162ed64ca`.
+The matching Z103 JTAG RAM-boot prepare-only payload hashes are:
+
+```text
+uImage             e3e8c700a07f360921a22bf02b987e7b20711701ababcfb336ff5a59cb33f159
+uramdisk.image.gz  fb2f6f50ae67e98c0edf02b664909f33d5f825fa9b0372560f266414bf8f357d
+devicetree.dtb     2c6c3c92f100543535ae96c57fc830fe747d7f253c075114107065fd6fbf833d
+```
 
 These are still copied-HDL integration gates. The DMA gate proves the namespace,
 HP-port split, ADI `axi_dmac` instances, 16-bit-to-byte adapter, stream

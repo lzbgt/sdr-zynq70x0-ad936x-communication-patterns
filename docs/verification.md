@@ -5334,8 +5334,10 @@ The installed two-board flow also passed with `tun_event_loop_ready=1` and
 
 ## 2026-05-26 Z103 RF-Engine Runtime Package Refresh
 
-After the timing-clean lean Z103 RF-engine Vivado build, the canonical Z103
-runtime package was regenerated from the RF-engine bitstream and the matching
+After correcting `tools/build_fieldmesh_rf_engine_overlay_vivado.sh` so Z103
+defaults to the RF-engine overlay instead of the control/ring overlay, the lean
+Z103 QPSK RF-engine Vivado build completed timing-clean. The canonical Z103
+runtime package was regenerated from that RF-engine bitstream and the matching
 JTAG RAM-boot payload was refreshed prepare-only. This keeps the installable
 `pluto.frm` and RAM-boot staging aligned with the same QPSK RF-engine PL image;
 no RF was transmitted, no hardware registers were written, and the bitstream
@@ -5344,20 +5346,26 @@ was not flashed.
 Commands:
 
 ```sh
+./tools/build_fieldmesh_rf_engine_overlay_vivado.sh z103
+./tools/check_fieldmesh_rf_engine_overlay_vivado.sh z103
+./tools/verify_fieldmesh_rf_engine_firmware_dma_binding.sh
 ./tools/package_fieldmesh_pluto_frm.sh z103
 PREPARE_ONLY=1 ./tools/run_fieldmesh_jtag_yocto_ram.sh z103
 ./tools/verify_fieldmesh_runtime_artifacts.sh z103
 ```
 
+The routed timing report for the corrected Z103 RF-engine build reported all
+constraints met, with `clk_fpga_0` WNS `+3.408 ns` and `rx_clk` WNS `+8.143 ns`.
+
 Current Z103 RF-engine build/package hashes:
 
 ```text
-system_top.bit:      adb9f423067eaf8f93ad601eecd80c55ca45a01c59718a16956d4d0c27897008
-system_top.xsa:      9365346a47e705aac16779e8542aa5aaea56e4b38ac39f3d0b166453f67602fd
+system_top.bit:      ff4b738bd16cfec715a95babf558effdcd1eb4f5332fd65169d09a74b6f80d83
+system_top.xsa:      851330eaa110787fa58963c6b89d4ef1c8e528aa30ee0a36152a17261af64aab
 Z103 rootfs.cpio.gz: 1c0236bb9c84d3a3831d494a5b987f7f46d3e122b8981f2fba27e685face53e3
 Z103 rootfs.tar.gz:  7a339d1c29af9c62a807d61a7f03fb1b66827f54b267d1101f7512234b290b34
-Z103 pluto.frm:      7f0fd29573d2c74ff1ea4115f421357dbd88c1701f8de56470f4fb92fe60359a
-Z103 pluto.itb:      97f8ade9ae432f9770df090552bfe3b81ccdde82f59952db1ad858296819a5eb
+Z103 pluto.frm:      4344ec56ce45607846a06582180e58ebc7e59580907be7e78cd38f3162ed64ca
+Z103 pluto.itb:      0ea0fb1f7f2fdd39d8142e06ae0fde02d2ec029e25a7784af8b08529a7cfbd1f
 Z103 devicetree.dtb: 2c6c3c92f100543535ae96c57fc830fe747d7f253c075114107065fd6fbf833d
 Z103 JTAG uImage:    e3e8c700a07f360921a22bf02b987e7b20711701ababcfb336ff5a59cb33f159
 Z103 JTAG ramdisk:   fb2f6f50ae67e98c0edf02b664909f33d5f825fa9b0372560f266414bf8f357d

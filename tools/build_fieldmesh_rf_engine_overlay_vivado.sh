@@ -23,9 +23,6 @@ shift || true
 enable_gnss_uart_emio="${ENABLE_GNSS_UART_EMIO:-0}"
 enable_gnss_pps_emio="${ENABLE_GNSS_PPS_EMIO:-0}"
 default_rf_engine_overlay=1
-if [[ "$variant" == "z103" ]]; then
-  default_rf_engine_overlay=0
-fi
 enable_rf_engine_overlay="${ENABLE_RF_ENGINE_OVERLAY:-$default_rf_engine_overlay}"
 case "$enable_gnss_uart_emio" in
   0|1) ;;
