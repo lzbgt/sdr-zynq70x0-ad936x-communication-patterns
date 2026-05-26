@@ -155,6 +155,11 @@ targets zynq.cpu0
 halt
 wait_halt 5000
 
+set sctlr [arm mrc 15 0 1 0 0]
+set sctlr [expr {\$sctlr & ~0x1005}]
+arm mcr 15 0 1 0 0 \$sctlr
+echo "CPU0_SCTLR_AFTER_CLEAR \$sctlr"
+
 source {$ps7_init}
 
 proc _read32 {addr} {

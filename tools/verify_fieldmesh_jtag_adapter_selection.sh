@@ -69,6 +69,15 @@ for rel in [
     if 'JTAG_PS_RESET:-0' not in text:
         missing.append(f"{rel}: Z103 helper must default to skipping DAP/SLCR PS soft reset")
 
+linux_ram = (repo / "tools/run_openocd_jtag_linux_ram.sh").read_text(encoding="utf-8")
+for token in [
+    "CPU0_SCTLR_AFTER_CLEAR",
+    "arm mcr 15 0 1 0 0 \\$sctlr",
+    "~0x1005",
+]:
+    if token not in linux_ram:
+        missing.append(f"run_openocd_jtag_linux_ram.sh missing CPU flat-addressing token: {token}")
+
 live_gate = (repo / "tools/run_fieldmesh_live_gate.sh").read_text(encoding="utf-8")
 for token in [
     "fieldmesh_jtag_defaults.sh",
