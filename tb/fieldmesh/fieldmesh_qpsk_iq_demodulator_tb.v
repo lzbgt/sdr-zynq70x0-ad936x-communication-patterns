@@ -287,6 +287,19 @@ task send_phase_sample;
     end
 endtask
 
+task wait_main_outputs;
+    input integer target_count;
+    integer waits;
+    begin
+        waits = 0;
+        while (out_count < target_count && waits < 128) begin
+            @(posedge clk);
+            waits = waits + 1;
+        end
+        if (out_count < target_count) fail("timed out waiting for demodulator output");
+    end
+endtask
+
 always @(posedge clk) begin
     if (rst) begin
         out_count <= 0;
@@ -304,12 +317,12 @@ initial begin
 
     m_axis_tready = 1'b0;
     send_qpsk_byte_a5(1'b1);
-    @(posedge clk);
+    while (!m_axis_tvalid) @(posedge clk);
     if (!m_axis_tvalid) fail("demodulator did not hold completed byte while output blocked");
     if (s_axis_tready) fail("demodulator accepted input while output byte was blocked");
     @(negedge clk);
     m_axis_tready = 1'b1;
-    repeat (2) @(posedge clk);
+    wait_main_outputs(1);
 
     if (out_count != 1) fail("output byte count mismatch");
     if (out_seen[0] != 8'ha5) fail("decoded QPSK byte mismatch");
@@ -324,19 +337,19 @@ initial begin
     if (min_symbol_margin != 32'd2000) fail("minimum symbol margin mismatch");
     if (margin_accum != 32'd8000) fail("margin accumulator mismatch");
     if (output_stall_cycle_count == 32'd0) fail("output stall counter did not increment");
-    if (input_backpressure_cycle_count != 32'd0) fail("unexpected input backpressure count");
+    if (input_backpressure_cycle_count == 32'd0) fail("pipeline input backpressure counter did not increment");
     if (dc_update_count != 32'd0) fail("disabled DC tracker updated");
     if (phase_update_count != 32'd0) fail("disabled phase tracker updated");
 
     send_sample(16'sd1000, 16'sd1000, 1'b1);
-    repeat (2) @(posedge clk);
+    repeat (6) @(posedge clk);
     if (fault_count != 32'd1) fail("malformed TLAST did not increment fault count");
 
     send_qpsk_byte_a5(1'b0);
-    repeat (6) @(posedge clk);
+    repeat (8) @(posedge clk);
     if (!s_axis_tready) fail("demodulator did not accept next sample on output consume cycle");
     send_qpsk_byte_a5(1'b1);
-    repeat (4) @(posedge clk);
+    wait_main_outputs(3);
     if (out_count != 3) fail("back-to-back output byte count mismatch");
     if (out_seen[1] != 8'ha5) fail("second decoded QPSK byte mismatch");
     if (out_seen[2] != 8'ha5) fail("third decoded QPSK byte mismatch");
@@ -351,7 +364,7 @@ initial begin
     if (margin_accum != 32'd24000) fail("strong margin accumulator mismatch");
 
     send_qpsk_byte_weak_tie(1'b1);
-    repeat (4) @(posedge clk);
+    wait_main_outputs(4);
     if (out_count != 4) fail("weak tie byte output count mismatch");
     if (out_seen[3] != 8'hff) fail("weak tie decoded byte mismatch");
     if (!out_last_seen[3]) fail("weak tie TLAST missing");

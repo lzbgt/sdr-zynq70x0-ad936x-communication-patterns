@@ -63,10 +63,20 @@ reg signed [31:0] q_acc = 32'sd0;
 reg signed [31:0] i_dc_acc = 32'sd0;
 reg signed [31:0] q_dc_acc = 32'sd0;
 reg signed [31:0] phase_acc = 32'sd0;
+reg [1:0]  stage = 2'd0;
+reg signed [31:0] stage_i_corrected = 32'sd0;
+reg signed [31:0] stage_q_corrected = 32'sd0;
+reg        stage_tlast = 1'b0;
+reg        stage_malformed_tlast = 1'b0;
+reg signed [31:0] stage_i_phase_term = 32'sd0;
+reg signed [31:0] stage_q_phase_term = 32'sd0;
 
 localparam [31:0] QUALITY_MARGIN_THRESHOLD_U32 = QUALITY_MARGIN_THRESHOLD;
 localparam signed [31:0] PHASE_TRACK_LIMIT_S32 = PHASE_TRACK_LIMIT;
 localparam signed [31:0] PHASE_TRACK_LIMIT_NEG_S32 = -PHASE_TRACK_LIMIT;
+localparam [1:0] ST_IDLE = 2'd0;
+localparam [1:0] ST_MIX = 2'd1;
+localparam [1:0] ST_SYMBOL = 2'd2;
 
 wire signed [15:0] i_sample = s_axis_tdata[15:0];
 wire signed [15:0] q_sample = s_axis_tdata[31:16];
@@ -78,14 +88,12 @@ wire signed [31:0] i_corrected = i_sample_ext - (DC_OFFSET_TRACK_ENABLE != 0 ? i
 wire signed [31:0] q_corrected = q_sample_ext - (DC_OFFSET_TRACK_ENABLE != 0 ? q_dc_est : 32'sd0);
 wire signed [31:0] i_dc_acc_next = i_dc_acc + (i_sample_ext - i_dc_est);
 wire signed [31:0] q_dc_acc_next = q_dc_acc + (q_sample_ext - q_dc_est);
-wire signed [63:0] i_phase_mix = $signed(phase_acc) * $signed(q_corrected);
-wire signed [63:0] q_phase_mix = $signed(phase_acc) * $signed(i_corrected);
-wire signed [31:0] i_phase_term = i_phase_mix >>> PHASE_APPLY_SHIFT;
-wire signed [31:0] q_phase_term = q_phase_mix >>> PHASE_APPLY_SHIFT;
+wire signed [63:0] i_phase_mix = $signed(phase_acc) * $signed(stage_q_corrected);
+wire signed [63:0] q_phase_mix = $signed(phase_acc) * $signed(stage_i_corrected);
 wire signed [31:0] i_symbol_sample =
-    i_corrected + (PHASE_TRACK_ENABLE != 0 ? i_phase_term : 32'sd0);
+    stage_i_corrected + (PHASE_TRACK_ENABLE != 0 ? stage_i_phase_term : 32'sd0);
 wire signed [31:0] q_symbol_sample =
-    q_corrected - (PHASE_TRACK_ENABLE != 0 ? q_phase_term : 32'sd0);
+    stage_q_corrected - (PHASE_TRACK_ENABLE != 0 ? stage_q_phase_term : 32'sd0);
 wire signed [31:0] i_sum_next = i_acc + i_symbol_sample;
 wire signed [31:0] q_sum_next = q_acc + q_symbol_sample;
 wire i_sample_bit = (i_symbol_sample >= 32'sd0);
@@ -107,7 +115,8 @@ wire [7:0] byte_with_i = i_bit ? (byte_reg | (8'h01 << i_bit_index)) : (byte_reg
 wire [7:0] byte_with_iq = q_bit ? (byte_with_i | (8'h01 << q_bit_index)) : (byte_with_i & ~(8'h01 << q_bit_index));
 wire final_sample = (sample_index == (SAMPLES_PER_SYMBOL - 1));
 wire final_pair = (pair_index == 2'd0);
-wire malformed_tlast = s_axis_tlast && !(final_sample && final_pair);
+wire malformed_tlast = stage_malformed_tlast;
+wire input_malformed_tlast = s_axis_tlast && !(final_sample && final_pair);
 wire output_fire = out_valid && m_axis_tready;
 wire input_fire = s_axis_tvalid && s_axis_tready;
 wire output_stalled = out_valid && !m_axis_tready;
@@ -118,7 +127,7 @@ wire [31:0] symbol_margin = i_margin < q_margin ? i_margin : q_margin;
 wire low_margin_symbol = symbol_margin <= QUALITY_MARGIN_THRESHOLD_U32;
 wire tie_symbol = (i_sum_next == 32'sd0) || (q_sum_next == 32'sd0);
 
-assign s_axis_tready = enable && (!out_valid || m_axis_tready);
+assign s_axis_tready = enable && (stage == ST_IDLE) && (!out_valid || m_axis_tready);
 assign m_axis_tvalid = enable && out_valid;
 assign m_axis_tdata = out_data;
 assign m_axis_tlast = out_last;
@@ -146,6 +155,13 @@ always @(posedge clk) begin
         i_dc_acc <= 32'sd0;
         q_dc_acc <= 32'sd0;
         phase_acc <= 32'sd0;
+        stage <= ST_IDLE;
+        stage_i_corrected <= 32'sd0;
+        stage_q_corrected <= 32'sd0;
+        stage_tlast <= 1'b0;
+        stage_malformed_tlast <= 1'b0;
+        stage_i_phase_term <= 32'sd0;
+        stage_q_phase_term <= 32'sd0;
         sample_count <= 32'd0;
         symbol_count <= 32'd0;
         byte_count <= 32'd0;
@@ -174,11 +190,22 @@ always @(posedge clk) begin
 
         if (input_fire) begin
             sample_count <= sample_count + 1'b1;
+            stage_i_corrected <= i_corrected;
+            stage_q_corrected <= q_corrected;
+            stage_tlast <= s_axis_tlast;
+            stage_malformed_tlast <= input_malformed_tlast;
+            stage <= ST_MIX;
             if (DC_OFFSET_TRACK_ENABLE != 0) begin
                 i_dc_acc <= i_dc_acc_next;
                 q_dc_acc <= q_dc_acc_next;
                 dc_update_count <= dc_update_count + 1'b1;
             end
+        end else if (stage == ST_MIX) begin
+            stage_i_phase_term <= i_phase_mix >>> PHASE_APPLY_SHIFT;
+            stage_q_phase_term <= q_phase_mix >>> PHASE_APPLY_SHIFT;
+            stage <= ST_SYMBOL;
+        end else if (stage == ST_SYMBOL) begin
+            stage <= ST_IDLE;
             if (PHASE_TRACK_ENABLE != 0) begin
                 phase_acc <= phase_acc_limited;
                 phase_error_accum <= phase_error_accum + phase_error[31:0];
@@ -211,9 +238,9 @@ always @(posedge clk) begin
                 if (final_pair) begin
                     out_valid <= 1'b1;
                     out_data <= byte_with_iq;
-                    out_last <= s_axis_tlast;
+                    out_last <= stage_tlast;
                     byte_count <= byte_count + 1'b1;
-                    if (s_axis_tlast) begin
+                    if (stage_tlast) begin
                         packet_count <= packet_count + 1'b1;
                     end
                     byte_reg <= 8'd0;

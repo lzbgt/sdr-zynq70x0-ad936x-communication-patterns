@@ -65,16 +65,16 @@ if [[ "$variant" == "z103" ]]; then
     echo "Z103 RF engine must use a 12.5 ns clk_fpga_0 constraint for the 80 MHz lean fabric clock" >&2
     exit 1
   fi
-  if grep -Fq 'if {[llength $fieldmesh_z103_rx_clk]' "$work_project/system_constr.xdc" ||
-     ! grep -Fq 'set_clock_groups -asynchronous -group [get_clocks rx_clk] -group [get_clocks clk_fpga_0]' "$work_project/system_constr.xdc"; then
-    echo "Z103 RF engine must constrain AD9361 rx_clk and PS FCLK0 as explicit async CDC domains" >&2
-    exit 1
-  fi
 else
   if ! grep -Fq 'create_clock -name clk_fpga_0 -period 10 [get_pins "i_system_wrapper/system_i/sys_ps7/inst/PS7_i/FCLKCLK[0]"]' "$work_project/system_constr.xdc"; then
     echo "$variant RF engine must retain the 10 ns clk_fpga_0 constraint" >&2
     exit 1
   fi
+fi
+if grep -Fq 'if {[llength $fieldmesh_z103_rx_clk]' "$work_project/system_constr.xdc" ||
+   ! grep -Fq 'set_clock_groups -asynchronous -group [get_clocks rx_clk] -group [get_clocks clk_fpga_0]' "$work_project/system_constr.xdc"; then
+  echo "$variant RF engine must constrain AD9361 rx_clk and PS FCLK0 as explicit async CDC domains" >&2
+  exit 1
 fi
 
 cat >"$work_project/fieldmesh_rf_engine_overlay_check.tcl" <<TCL
@@ -116,7 +116,7 @@ set required_cells {
   fieldmesh_iq_rx_cdc
 }
 if {"$variant" ne "z103"} {
-  lappend required_cells fieldmesh_axis_bridge fieldmesh_ring fieldmesh_fw_dma_endpoint fieldmesh_qpsk_tx_fir fieldmesh_qpsk_rx_fir
+  lappend required_cells fieldmesh_qpsk_tx_fir fieldmesh_qpsk_rx_fir
 }
 foreach cell \$required_cells {
   if {[llength [get_bd_cells -quiet \$cell]] != 1} {
@@ -192,15 +192,6 @@ if {"$variant" eq "z103"} {
       error "Z103 RF engine must use the lean 1R1T/no-DDS/no-IQ-correction AD9361 profile"
     }
   }
-  if {[llength [get_bd_cells -quiet fieldmesh_fw_dma_endpoint]] != 0} {
-    error "Z103 RF engine must omit the firmware DMA endpoint and use direct PL QPSK DMA to fit xc7z010"
-  }
-  if {[llength [get_bd_cells -quiet fieldmesh_ring]] != 0} {
-    error "Z103 RF engine must omit the standalone sidecar ring to fit xc7z010"
-  }
-  if {[llength [get_bd_cells -quiet fieldmesh_axis_bridge]] != 0} {
-    error "Z103 RF engine must omit the parked sidecar bridge to fit xc7z010"
-  }
   if {[llength [get_bd_cells -quiet fieldmesh_qpsk_tx_fir]] != 0 ||
       [llength [get_bd_cells -quiet fieldmesh_qpsk_rx_fir]] != 0} {
     error "Z103 RF engine must omit QPSK FIR blocks to fit xc7z010"
@@ -210,6 +201,15 @@ if {"$variant" eq "z103"} {
   if {"\$demod_dc" ne "0" || "\$demod_phase" ne "0"} {
     error "Z103 RF engine demodulator must use the lean no-multiplier tracking profile"
   }
+}
+if {[llength [get_bd_cells -quiet fieldmesh_ring]] != 0} {
+  error "RF engine overlays must omit the standalone sidecar ring; the performance path uses direct DMA/QPSK fabric"
+}
+if {[llength [get_bd_cells -quiet fieldmesh_fw_dma_endpoint]] != 0} {
+  error "RF engine overlays must omit the descriptor firmware DMA endpoint; the performance path uses direct PL QPSK DMA"
+}
+if {[llength [get_bd_cells -quiet fieldmesh_axis_bridge]] != 0} {
+  error "RF engine overlays must omit the parked sidecar bridge; Python/HIL glue is not part of the performance path"
 }
 
 set ctrl_addr_width ""
@@ -519,7 +519,7 @@ foreach pin {
   if {"$variant" eq "z103" && [regexp {^fieldmesh_qpsk_(tx|rx)_fir/} \$pin]} {
     continue
   }
-  if {"$variant" eq "z103" && [regexp {^fieldmesh_fw_dma_endpoint/} \$pin]} {
+  if {[regexp {^fieldmesh_fw_dma_endpoint/} \$pin]} {
     continue
   }
   if {[llength [get_bd_pins -quiet \$pin]] != 1} {
@@ -537,7 +537,7 @@ foreach intf {
   fieldmesh_rx_dma/s_axis
   fieldmesh_iq_rx_cdc/m_axis
 } {
-  if {"$variant" eq "z103" && [regexp {^fieldmesh_fw_dma_endpoint/} \$intf]} {
+  if {[regexp {^fieldmesh_fw_dma_endpoint/} \$intf]} {
     continue
   }
   if {[llength [get_bd_intf_pins -quiet \$intf]] != 1} {
@@ -574,60 +574,11 @@ assert_same_net fieldmesh_ctrl/rf_guard_blocked_cycle_count fieldmesh_iq_tx_guar
 assert_same_net fieldmesh_ctrl/rf_guard_drop_late_sample_count fieldmesh_iq_tx_guard/drop_late_sample_count
 assert_same_net fieldmesh_ctrl/rf_guard_drop_late_packet_count fieldmesh_iq_tx_guard/drop_late_packet_count
 assert_same_net fieldmesh_ctrl/rf_guard_fault fieldmesh_iq_tx_guard/fault
-if {"$variant" ne "z103"} {
-  assert_same_net fieldmesh_ctrl/fw_dma_enable fieldmesh_fw_dma_endpoint/enable
-  assert_same_net fieldmesh_ctrl/fw_dma_ingress_enable fieldmesh_fw_dma_endpoint/ingress_enable
-  assert_same_net fieldmesh_ctrl/fw_dma_egress_enable fieldmesh_fw_dma_endpoint/egress_enable
-  assert_same_net fieldmesh_ctrl/fw_dma_peer_index fieldmesh_fw_dma_endpoint/peer_index
-  assert_same_net fieldmesh_ctrl/fw_dma_mcs fieldmesh_fw_dma_endpoint/mcs
-  assert_same_net fieldmesh_ctrl/fw_dma_retry_budget fieldmesh_fw_dma_endpoint/retry_budget
-  assert_same_net fieldmesh_ctrl/fw_dma_descriptor_flags fieldmesh_fw_dma_endpoint/descriptor_flags
-  assert_same_net fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed
-  assert_same_net fieldmesh_ctrl/fw_dma_mac_scheduler_enable fieldmesh_fw_dma_endpoint/mac_scheduler_enable
-  assert_same_net fieldmesh_ctrl/fw_dma_mac_tick_enable fieldmesh_fw_dma_endpoint/mac_tick
-  assert_same_net fieldmesh_ctrl/fw_dma_mac_stop fieldmesh_fw_dma_endpoint/mac_stop
-  assert_same_net fieldmesh_ctrl/fw_dma_mac_service_budget fieldmesh_fw_dma_endpoint/mac_service_budget
-  assert_same_net fieldmesh_fw_dma_endpoint/mac_scheduler_active fieldmesh_ctrl/fw_dma_mac_scheduler_active
-  assert_same_net fieldmesh_fw_dma_endpoint/pump_done fieldmesh_ctrl/fw_dma_pump_done
-  assert_same_net fieldmesh_fw_dma_endpoint/pump_drained_empty fieldmesh_ctrl/fw_dma_pump_drained_empty
-  assert_same_net fieldmesh_fw_dma_endpoint/pump_budget_exhausted fieldmesh_ctrl/fw_dma_pump_budget_exhausted
-  assert_same_net fieldmesh_fw_dma_endpoint/service_accepted fieldmesh_ctrl/fw_dma_service_accepted
-  assert_same_net fieldmesh_fw_dma_endpoint/service_queued_count fieldmesh_ctrl/fw_dma_service_queued_count
-  assert_same_net fieldmesh_fw_dma_endpoint/service_selected_word fieldmesh_ctrl/fw_dma_service_selected_word
-  assert_same_net fieldmesh_fw_dma_endpoint/tx_parser_packet_count fieldmesh_ctrl/fw_dma_tx_parser_packet_count
-  assert_same_net fieldmesh_fw_dma_endpoint/tx_parser_byte_count fieldmesh_ctrl/fw_dma_tx_parser_byte_count
-  assert_same_net fieldmesh_fw_dma_endpoint/tx_parser_drop_count fieldmesh_ctrl/fw_dma_tx_parser_drop_count
-  assert_same_net fieldmesh_fw_dma_endpoint/tx_parser_fault fieldmesh_ctrl/fw_dma_tx_parser_fault
-  assert_same_net fieldmesh_fw_dma_endpoint/ingress_packet_count fieldmesh_ctrl/fw_dma_ingress_packet_count
-  assert_same_net fieldmesh_fw_dma_endpoint/ingress_byte_count fieldmesh_ctrl/fw_dma_ingress_byte_count
-  assert_same_net fieldmesh_fw_dma_endpoint/ingress_desc_publish_count fieldmesh_ctrl/fw_dma_ingress_desc_publish_count
-  assert_same_net fieldmesh_fw_dma_endpoint/ingress_drop_count fieldmesh_ctrl/fw_dma_ingress_drop_count
-  assert_same_net fieldmesh_fw_dma_endpoint/ingress_fault fieldmesh_ctrl/fw_dma_ingress_fault
-  assert_same_net fieldmesh_fw_dma_endpoint/egress_packet_count fieldmesh_ctrl/fw_dma_egress_packet_count
-  assert_same_net fieldmesh_fw_dma_endpoint/egress_byte_count fieldmesh_ctrl/fw_dma_egress_byte_count
-  assert_same_net fieldmesh_fw_dma_endpoint/egress_drop_count fieldmesh_ctrl/fw_dma_egress_drop_count
-  assert_same_net fieldmesh_fw_dma_endpoint/egress_fault fieldmesh_ctrl/fw_dma_egress_fault
-  assert_same_net fieldmesh_fw_dma_endpoint/mac_tick_count fieldmesh_ctrl/fw_dma_mac_tick_count
-  assert_same_net fieldmesh_fw_dma_endpoint/mac_pump_start_count fieldmesh_ctrl/fw_dma_mac_pump_start_count
-  assert_same_net fieldmesh_fw_dma_endpoint/mac_pump_done_count fieldmesh_ctrl/fw_dma_mac_pump_done_count
-  assert_same_net fieldmesh_fw_dma_endpoint/service_latency_last_cycles fieldmesh_ctrl/fw_dma_service_latency_last_cycles
-  assert_same_net fieldmesh_fw_dma_endpoint/service_latency_max_cycles fieldmesh_ctrl/fw_dma_service_latency_max_cycles
-  assert_same_net fieldmesh_fw_dma_endpoint/service_latency_accum_cycles fieldmesh_ctrl/fw_dma_service_latency_accum_cycles
-  assert_same_net fieldmesh_ctrl/fw_dma_service_latency_budget_cycles fieldmesh_fw_dma_endpoint/service_latency_budget_cycles
-  assert_same_net fieldmesh_fw_dma_endpoint/service_latency_over_budget fieldmesh_ctrl/fw_dma_service_latency_over_budget
-  assert_same_net fieldmesh_fw_dma_endpoint/service_latency_over_budget_count fieldmesh_ctrl/fw_dma_service_latency_over_budget_count
-  assert_same_net fieldmesh_fw_dma_endpoint/bram_crc_error_count fieldmesh_ctrl/fw_dma_bram_crc_error_count
-  assert_same_net fieldmesh_fw_dma_endpoint/bram_bounds_error_count fieldmesh_ctrl/fw_dma_bram_bounds_error_count
-  assert_same_net fieldmesh_fw_dma_endpoint/bram_error_count fieldmesh_ctrl/fw_dma_bram_error_count
-}
 
 set required_addr_segs {
   SEG_data_fieldmesh_ctrl
   SEG_data_fieldmesh_tx_dma
   SEG_data_fieldmesh_rx_dma
-}
-if {"$variant" ne "z103"} {
-  lappend required_addr_segs SEG_data_fieldmesh_ring
 }
 foreach seg \$required_addr_segs {
   if {[llength [get_bd_addr_segs -quiet sys_ps7/Data/\$seg]] != 1} {
@@ -638,11 +589,7 @@ foreach seg \$required_addr_segs {
 set tx_path_pairs {
   {fieldmesh_iq_rx_cdc/m_axis fieldmesh_axis16_adapter/s_axis8}
 }
-if {"$variant" eq "z103"} {
-  lappend tx_path_pairs {fieldmesh_axis16_adapter/m_axis8 fieldmesh_qpsk_tx_whitener/s_axis}
-} else {
-  lappend tx_path_pairs {fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_tx_whitener/s_axis}
-}
+lappend tx_path_pairs {fieldmesh_axis16_adapter/m_axis8 fieldmesh_qpsk_tx_whitener/s_axis}
 foreach pair \$tx_path_pairs {
   assert_same_intf_net [lindex \$pair 0] [lindex \$pair 1]
 }

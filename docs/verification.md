@@ -2713,8 +2713,12 @@ The matching RX primitive is
 `tb/fieldmesh/fieldmesh_qpsk_iq_demodulator_tb.v`. It consumes signed I/Q
 samples, integrates the configured repeat window, makes hard QPSK I/Q sign
 decisions, and reconstructs byte-stream packets in the same MSB-first bit-pair
-order. The test covers output backpressure, TLAST propagation, byte/sample/
-packet counters, and malformed packet-boundary fault accounting.
+order. The RX-clock implementation stages DC-corrected sample capture,
+carrier phase mixing, and symbol/quality counter updates so inferred DSP phase
+rotation is registered instead of sitting in one cycle with margin/min-counter
+logic. The test covers output backpressure, pipeline input backpressure, TLAST
+propagation, byte/sample/packet counters, and malformed packet-boundary fault
+accounting.
 `rtl/fieldmesh/fieldmesh_iq_adc_axis_source.v` with
 `tb/fieldmesh/fieldmesh_iq_adc_axis_source_tb.v` adds the AD9361 RX-clock-domain
 I/Q sample packer for the FPGA RF path. The test covers `{Q,I}` packing, no
@@ -2723,6 +2727,9 @@ RF-engine overlay now routes those continuous RX samples through another
 `fieldmesh_iq_fir_filter` instance before timing recovery, with tail flushing
 disabled, so TX pulse shaping has a matching PL RX FIR/matched-filter stage
 without introducing packet-tail artifacts into the continuous ADC stream.
+`rtl/fieldmesh/fieldmesh_qpsk_symbol_timing_recovery.v` registers the weighted
+matched-filter calculation before driving output and diagnostics, so the
+RX-clock path is pipelined for the 15.36 Mbps QPSK RF-engine profile.
 `rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v` with
 `tb/fieldmesh/fieldmesh_qpsk_byte_sync_tb.v` adds PL byte-phase synchronization
 after QPSK demodulation. The test covers one-symbol-slip recovery from the

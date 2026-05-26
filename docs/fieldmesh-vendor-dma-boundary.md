@@ -201,11 +201,17 @@ owning RF tuning, TX enable, filtering, or scheduled transmission.
 `fieldmesh_qpsk_iq_demodulator.v` is the
 matching RX primitive: it converts signed QPSK I/Q samples back into byte
 stream data with the same MSB-first bit-pair order and exposes sample, byte,
-packet, and fault counters for the firmware boundary.
+packet, and fault counters for the firmware boundary. The demodulator pipelines
+DC-corrected sample capture, carrier phase mixing, and symbol/quality updates
+across separate RX-clock stages so the Z203/Z103 RF-engine path keeps the
+15.36 Mbps QPSK profile without an unpipelined DSP-plus-margin critical path.
 The overlay also instantiates `fieldmesh_qpsk_rx_fir`, another
 `fieldmesh_iq_fir_filter.v` instance with RX tail flushing disabled, between
 the AD9361 I/Q packer and QPSK timing recovery. That keeps TX/RX pulse shaping
 matched in PL while preserving the RX stream as a continuous sample stream.
+The timing recovery stage registers the weighted matched-filter result before
+publishing output and diagnostics, breaking the RX-clock critical path at the
+15.36 Mbps QPSK profile.
 `fieldmesh_qpsk_byte_sync.v` follows the demodulator and requires the full
 four-byte FieldMesh acquisition preamble followed by magic bytes across any
 two-bit QPSK symbol phase and any 90-degree QPSK quadrant ambiguity before
@@ -519,17 +525,21 @@ For low-memory development sessions, the lightweight static guard is:
 ```
 
 It checks the patcher, required RTL inventory, and RF-engine overlay checker for
-the firmware-DMA endpoint, QPSK TX path, and AD9361 RX demod/header-framing
-path, and rejects direct sidecar-bridge-to-symbolizer wiring. On Z103, the
-copied RF-engine profile is intentionally lean: packet DMA feeds the PL QPSK
-path directly, the standalone firmware-DMA/ring/FIR diagnostic fabric is
-omitted, AD9361 is synthesized as 1R1T with unused DDS/DC-filter/IQ-correction
-fabric disabled, and `clk_fpga_0` is reduced to 80 MHz with a matching 12.5 ns
-constraint so the small Z7010 can place the RF engine without changing the
-AD9361 sample clock or the 15.36 Mbps raw QPSK PHY profile. The Z103 RF-engine
-constraint file also declares the AD9361 `rx_clk` and PS `clk_fpga_0` domains
-as asynchronous; their crossings are explicit AXI-stream async FIFOs or
-diagnostic synchronizers, not single-cycle timing paths.
+the direct packet-DMA-to-QPSK TX path and AD9361 RX demod/header-framing path,
+and rejects direct sidecar-bridge-to-symbolizer wiring. RF-engine overlays omit
+the standalone sidecar ring, parked sidecar bridge, and descriptor-service
+firmware-DMA endpoint because they are diagnostic/control or MAC-service
+machinery, not part of the live high-speed packet-to-QPSK data plane. The
+descriptor endpoint also creates a very long service-word selector that does not
+meet RF-engine timing at the 15.36 Mbps QPSK profile. Both RF-engine variants
+declare the AD9361 `rx_clk` and PS `clk_fpga_0` domains as asynchronous; their
+crossings are explicit AXI-stream async FIFOs or diagnostic synchronizers, not
+single-cycle timing paths. On Z103, the copied RF-engine profile is further
+leaned: AD9361 is synthesized as 1R1T with unused
+DDS/DC-filter/IQ-correction fabric disabled, QPSK FIR blocks are omitted, and
+`clk_fpga_0` is reduced to 80 MHz with a matching 12.5 ns constraint so the
+small Z7010 can place the RF engine without changing the AD9361 sample clock or
+the 15.36 Mbps raw QPSK PHY profile.
 
 Build the same copied-HDL overlay into a bitstream/XSA with:
 
@@ -553,6 +563,24 @@ workspace. DMA-overlay outputs live under
 under `.config/fieldmesh/rf-engine-overlay-build-z203/` or
 `.config/fieldmesh/rf-engine-overlay-build-z103/`.
 
+The current timing-clean Z203 RF-engine build artifacts are:
+
+```text
+system_top.bit  1fb48cbf97a204b05d79a91d65dd7b26a254f0085ab5df70a80636ac053dfab5
+system_top.xsa  734bf14e8eb2577fd7cbe18335e7d9d659e95748172057a4d48016932d3b72e1
+```
+
+The matching canonical Z203 runtime package is
+`.config/fieldmesh/runtime-package-z203/fit-work/build/pluto.frm` with SHA-256
+`4ac52d88a5c414d6076ba2f3e34a4c628d23eb420be8184669384fb3270d02c6`.
+The matching Z203 JTAG RAM-boot prepare-only payload hashes are:
+
+```text
+uImage             ec5c538fccdd28e1c59e27f7e18b033aead1b4f4f9ac4222a4f05ebaf7d612e2
+uramdisk.image.gz  ff2f05427bf868e0a4e96ba49be233d9f5776842bf5b94904998c7902eb0dbc6
+devicetree.dtb     6e3292478c9c3dd201c179fc78ad05531966b1a5671ceb45dc527ca25b4875c2
+```
+
 The current timing-clean lean Z103 RF-engine build artifacts are:
 
 ```text
@@ -567,14 +595,17 @@ The matching canonical Z103 runtime package is
 These are still copied-HDL integration gates. The DMA gate proves the namespace,
 HP-port split, ADI `axi_dmac` instances, 16-bit-to-byte adapter, stream
 connections, and address segments are BD-visible on both variants. The RF-engine
-gate proves the firmware-DMA endpoint, egress broadcast, packet-to-symbol TX
-primitive, RF guard, CDC bridge, and DAC-domain source driver are BD-visible
-while still disconnected from AD936x TX by reset-off source selection. The Z203
-and Z103 DMA-overlay paths have both produced timing-clean `system_top.bit`/XSA
-artifacts. The RF-engine overlay paths have also produced timing-clean
-`system_top.bit`/XSA artifacts with the async FIFO CDC bridge and reset-off
-sidecar-controlled DAC source driver in place. The RF-engine overlay does not
-yet provide a live FieldMesh-selected AD936x TX source or live board RF traffic.
+gate proves the QPSK TX/RX primitives, RF guard, CDC bridge, and DAC-domain
+source driver are BD-visible while still disconnected from AD936x TX by
+reset-off source selection. Both RF-engine variants use direct DMA-to-QPSK for
+the performance data plane; descriptor validation and MAC-service machinery stay
+in the firmware/daemon control path until they are reintroduced as pipelined PL
+logic with timing closure. The Z203 and Z103 DMA-overlay paths have both produced
+timing-clean `system_top.bit`/XSA artifacts. The RF-engine overlay paths have
+also produced timing-clean `system_top.bit`/XSA artifacts with the async FIFO
+CDC bridge and reset-off sidecar-controlled DAC source driver in place. The
+RF-engine overlay does not yet provide a live FieldMesh-selected AD936x TX
+source or live board RF traffic.
 
 The matching devicetree contract is generated and checked separately:
 

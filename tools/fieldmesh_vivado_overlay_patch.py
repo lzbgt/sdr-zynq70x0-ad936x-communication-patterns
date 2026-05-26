@@ -433,7 +433,7 @@ ad_connect fieldmesh_axis16_adapter/m_axis16 fieldmesh_rx_dma/s_axis
     elif rf_engine_endpoint:
         packet_path = """
 ad_connect fieldmesh_tx_dma/m_axis fieldmesh_axis16_adapter/s_axis16
-# Z103 RF-engine profile feeds packet bytes directly into the PL QPSK path.
+# RF-engine profile feeds packet bytes directly into the PL QPSK path.
 # RX DMA is fed by AD9361 RX -> QPSK demod -> header framer -> RX CDC.
 ad_connect fieldmesh_axis16_adapter/m_axis16 fieldmesh_rx_dma/s_axis
 """
@@ -506,11 +506,7 @@ ad_cpu_interrupt {rx_dma["irq"]} fieldmesh_rx_dma/irq
 
 def render_rf_engine_overlay(variant_name: str) -> str:
     z103_lean = variant_name == "z103"
-    tx_packet_input = (
-        "ad_connect fieldmesh_axis16_adapter/m_axis8 fieldmesh_qpsk_tx_whitener/s_axis"
-        if z103_lean
-        else "ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_tx_whitener/s_axis"
-    )
+    tx_packet_input = "ad_connect fieldmesh_axis16_adapter/m_axis8 fieldmesh_qpsk_tx_whitener/s_axis"
     tx_fir_block = ""
     tx_guard_input = """ad_connect fieldmesh_qpsk_symbolizer/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid
 ad_connect fieldmesh_iq_tx_guard/s_axis_tready fieldmesh_qpsk_symbolizer/m_axis_tready
@@ -603,11 +599,12 @@ ad_connect fieldmesh_iq_tx_guard/drop_late_packet_count fieldmesh_ctrl/rf_guard_
 ad_connect fieldmesh_iq_tx_guard/fault fieldmesh_ctrl/rf_guard_fault
 
 # The QPSK TX/RX primitives are BD-visible here. TX packet bytes come from the
-# C/FPGA-owned DMA byte stream; Z203 routes through the descriptor-validated
-# firmware endpoint, while Z103 uses a resource-fit direct DMA stream. RX packet
-# bytes come from the AD9361 RX sample path, QPSK demodulation, and FieldMesh
-# header framing before crossing into the RX DMA clock domain. No Python or
-# helper process sits in the performance-critical RF packet path.
+# C/FPGA-owned DMA byte stream directly into PL QPSK. Descriptor-service logic
+# stays out of the RF-engine overlay because it is not on the high-speed sample
+# path and creates long timing paths. RX packet bytes come from the AD9361 RX
+# sample path, QPSK demodulation, and FieldMesh header framing before crossing
+# into the RX DMA clock domain. No Python or helper process sits in the
+# performance-critical RF packet path.
 {tx_guard_input}
 
 create_bd_cell -type module -reference fieldmesh_axis_async_fifo fieldmesh_iq_tx_cdc
@@ -820,7 +817,7 @@ def patch_system_bd(
         dma_overlay = True
     if dma_overlay:
         control_overlay = True
-        bridge_overlay = not (variant_name == "z103" and rf_engine_overlay)
+        bridge_overlay = not rf_engine_overlay
     changed = False
     if variant_name == "z103" and rf_engine_overlay:
         fclk0_100 = "ad_ip_parameter sys_ps7 CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ 100.0"
@@ -867,7 +864,7 @@ def patch_system_bd(
                 changed = True
                 continue
             raise SystemExit(f"system_bd.tcl: expected Z103 axi_ad9361 profile anchor not found: {old}")
-    ring_overlay = control_overlay and not (variant_name == "z103" and rf_engine_overlay)
+    ring_overlay = control_overlay and not rf_engine_overlay
     blocks = []
     if BD_FILES_BEGIN not in text:
         blocks.append(render_bd_files_overlay())
@@ -908,7 +905,7 @@ def patch_system_bd(
             render_control_overlay(
                 plan,
                 rf_guard_defaults=not rf_engine_overlay,
-                fw_dma_defaults=not dma_overlay or (variant_name == "z103" and rf_engine_overlay),
+                fw_dma_defaults=not dma_overlay or rf_engine_overlay,
                 variant_name=variant_name,
                 rf_engine_overlay=rf_engine_overlay,
             )
@@ -926,7 +923,7 @@ def patch_system_bd(
         blocks.append(
             render_dma_overlay(
                 plan,
-                use_firmware_endpoint=not (variant_name == "z103" and rf_engine_overlay),
+                use_firmware_endpoint=not rf_engine_overlay,
                 rf_engine_endpoint=rf_engine_overlay,
                 variant_name=variant_name,
             )
@@ -943,18 +940,19 @@ def patch_system_bd(
 
 
 def patch_system_constr(text: str, variant_name: str, rf_engine_overlay: bool) -> tuple[str, bool]:
-    if not (variant_name == "z103" and rf_engine_overlay):
+    if not rf_engine_overlay:
         return text, False
     changed = False
-    fclk_pin = '[get_pins "i_system_wrapper/system_i/sys_ps7/inst/PS7_i/FCLKCLK[0]"]'
-    old = f"create_clock -name clk_fpga_0 -period 10 {fclk_pin}"
-    new = f"create_clock -name clk_fpga_0 -period 12.5 {fclk_pin}"
-    if new not in text:
-        if old not in text:
-            raise SystemExit("system_constr.xdc: expected clk_fpga_0 100 MHz clock anchor not found")
-        text = text.replace(old, new, 1)
-        changed = True
-    async_clock_group = """# FieldMesh Z103 RF engine: AD9361 sample clock and PS FCLK0 are independent.
+    if variant_name == "z103":
+        fclk_pin = '[get_pins "i_system_wrapper/system_i/sys_ps7/inst/PS7_i/FCLKCLK[0]"]'
+        old = f"create_clock -name clk_fpga_0 -period 10 {fclk_pin}"
+        new = f"create_clock -name clk_fpga_0 -period 12.5 {fclk_pin}"
+        if new not in text:
+            if old not in text:
+                raise SystemExit("system_constr.xdc: expected clk_fpga_0 100 MHz clock anchor not found")
+            text = text.replace(old, new, 1)
+            changed = True
+    async_clock_group = """# FieldMesh RF engine: AD9361 sample clock and PS FCLK0 are independent.
 # All crossings between these domains are explicit async FIFOs or diagnostic
 # synchronizers, so they must not be timed as single-cycle synchronous paths.
 set_clock_groups -asynchronous -group [get_clocks rx_clk] -group [get_clocks clk_fpga_0]
@@ -1039,7 +1037,7 @@ def apply_patch(
         dma_overlay = True
     if dma_overlay:
         control_overlay = True
-        bridge_overlay = not (variant_name == "z103" and rf_engine_overlay)
+        bridge_overlay = not rf_engine_overlay
 
     project_dir = hdl_tree / "projects" / "pluto"
     system_bd = project_dir / "system_bd.tcl"

@@ -42,6 +42,11 @@ module fieldmesh_qpsk_symbol_timing_recovery #(
 reg        out_valid = 1'b0;
 reg [31:0] out_data = 32'd0;
 reg        out_last = 1'b0;
+reg        calc_valid = 1'b0;
+reg signed [31:0] calc_weighted_i_sum = 32'sd0;
+reg signed [31:0] calc_weighted_q_sum = 32'sd0;
+reg        calc_last = 1'b0;
+reg [7:0]  calc_best_phase = 8'd0;
 reg [7:0]  phase_index = 8'd0;
 reg [7:0]  best_phase = 8'd0;
 reg signed [15:0] best_i_sample = 16'sd0;
@@ -71,8 +76,8 @@ wire signed [31:0] best_i_sample_next_32 = {{16{best_i_sample_next[15]}}, best_i
 wire signed [31:0] best_q_sample_next_32 = {{16{best_q_sample_next[15]}}, best_q_sample_next};
 wire signed [31:0] weighted_i_sum = sum_i_next + (best_i_sample_next_32 * CENTER_EXTRA_WEIGHT);
 wire signed [31:0] weighted_q_sum = sum_q_next + (best_q_sample_next_32 * CENTER_EXTRA_WEIGHT);
-wire signed [15:0] filtered_i_sample = avg_sat16(weighted_i_sum);
-wire signed [15:0] filtered_q_sample = avg_sat16(weighted_q_sum);
+wire signed [15:0] filtered_i_sample = avg_sat16(calc_weighted_i_sum);
+wire signed [15:0] filtered_q_sample = avg_sat16(calc_weighted_q_sum);
 wire [31:0] filtered_data_next = {filtered_q_sample, filtered_i_sample};
 wire [31:0] filtered_i_margin = abs16(filtered_i_sample);
 wire [31:0] filtered_q_margin = abs16(filtered_q_sample);
@@ -82,11 +87,12 @@ wire [31:0] best_margin_next = sample_is_better ? sample_margin : best_margin;
 wire window_last_next = window_last || s_axis_tlast;
 wire final_phase = (phase_index == (OVERSAMPLE_FACTOR - 1));
 wire output_fire = out_valid && m_axis_tready;
+wire calc_fire = calc_valid && (!out_valid || m_axis_tready);
 wire input_fire = s_axis_tvalid && s_axis_tready;
 wire output_stalled = out_valid && !m_axis_tready;
 wire input_backpressured = s_axis_tvalid && !s_axis_tready;
 
-assign s_axis_tready = enable && (!out_valid || m_axis_tready);
+assign s_axis_tready = enable && !calc_valid && (!out_valid || m_axis_tready);
 assign m_axis_tvalid = enable && out_valid;
 assign m_axis_tdata = out_data;
 assign m_axis_tlast = out_last;
@@ -100,9 +106,16 @@ endfunction
 
 function signed [15:0] avg_sat16;
     input signed [31:0] value;
-    reg signed [31:0] avg;
+reg signed [31:0] avg;
     begin
-        avg = value / MATCHED_FILTER_WEIGHT_SUM;
+        if (MATCHED_FILTER_WEIGHT_SUM == 4) begin
+            avg = value >>> 2;
+            if (value < 32'sd0 && value[1:0] != 2'b00) begin
+                avg = avg + 1'b1;
+            end
+        end else begin
+            avg = value / MATCHED_FILTER_WEIGHT_SUM;
+        end
         if (avg > 32'sd32767) begin
             avg_sat16 = 16'sh7fff;
         end else if (avg < -32'sd32768) begin
@@ -118,6 +131,11 @@ always @(posedge clk) begin
         out_valid <= 1'b0;
         out_data <= 32'd0;
         out_last <= 1'b0;
+        calc_valid <= 1'b0;
+        calc_weighted_i_sum <= 32'sd0;
+        calc_weighted_q_sum <= 32'sd0;
+        calc_last <= 1'b0;
+        calc_best_phase <= 8'd0;
         phase_index <= 8'd0;
         best_phase <= 8'd0;
         best_i_sample <= 16'sd0;
@@ -148,26 +166,35 @@ always @(posedge clk) begin
             out_valid <= 1'b0;
         end
 
+        if (calc_fire) begin
+            out_valid <= 1'b1;
+            out_data <= filtered_data_next;
+            out_last <= calc_last;
+            calc_valid <= 1'b0;
+            if (ENABLE_DIAGNOSTICS) begin
+                output_symbol_count <= output_symbol_count + 1'b1;
+                timing_margin_accum <= timing_margin_accum + filtered_margin;
+                if (filtered_margin <= QUALITY_MARGIN_THRESHOLD_U32) begin
+                    low_timing_margin_count <= low_timing_margin_count + 1'b1;
+                end
+                if (selected_phase[7:0] != calc_best_phase) begin
+                    phase_change_count <= phase_change_count + 1'b1;
+                end
+                selected_phase <= {24'd0, calc_best_phase};
+            end
+        end
+
         if (input_fire) begin
                 if (ENABLE_DIAGNOSTICS) begin
                     input_sample_count <= input_sample_count + 1'b1;
                 end
 
                 if (final_phase) begin
-                    out_valid <= 1'b1;
-                    out_data <= filtered_data_next;
-                    out_last <= window_last_next;
-                    if (ENABLE_DIAGNOSTICS) begin
-                        output_symbol_count <= output_symbol_count + 1'b1;
-                        timing_margin_accum <= timing_margin_accum + filtered_margin;
-                        if (filtered_margin <= QUALITY_MARGIN_THRESHOLD_U32) begin
-                            low_timing_margin_count <= low_timing_margin_count + 1'b1;
-                        end
-                        if (selected_phase[7:0] != best_phase_next) begin
-                            phase_change_count <= phase_change_count + 1'b1;
-                        end
-                        selected_phase <= {24'd0, best_phase_next};
-                    end
+                    calc_valid <= 1'b1;
+                    calc_weighted_i_sum <= weighted_i_sum;
+                    calc_weighted_q_sum <= weighted_q_sum;
+                    calc_last <= window_last_next;
+                    calc_best_phase <= best_phase_next;
                     phase_index <= 8'd0;
                     best_phase <= 8'd0;
                     best_i_sample <= 16'sd0;

@@ -98,7 +98,7 @@ initial begin
 
     send_sample(16'sd120, -16'sd90, 1'b0);
     send_sample(16'sd1200, -16'sd900, 1'b0);
-    repeat (2) @(posedge clk);
+    repeat (3) @(posedge clk);
     if (out_count != 1) fail("first centered symbol was not emitted");
     if (out_seen[0] != {(-16'sd697), 16'sd930}) fail("did not emit phase-weighted matched-filtered phase-1 window");
     if (selected_phase != 32'd1) fail("selected phase did not track phase-1 sample");
@@ -110,11 +110,13 @@ initial begin
     send_sample(-16'sd1100, 16'sd950, 1'b0);
     send_sample(-16'sd80, 16'sd70, 1'b1);
     @(posedge clk);
+    #1;
     if (!m_axis_tvalid) fail("timing recovery did not hold output while blocked");
     if (s_axis_tready) fail("timing recovery accepted input while output blocked");
+    @(posedge clk);
     @(negedge clk);
     m_axis_tready = 1'b1;
-    repeat (2) @(posedge clk);
+    repeat (3) @(posedge clk);
     if (out_count != 2) fail("second centered symbol was not emitted");
     if (out_seen[1] != {16'sd730, (-16'sd845)}) fail("did not emit phase-weighted matched-filtered phase-0 window");
     if (!out_last_seen[1]) fail("selected TLAST was not preserved");
@@ -127,7 +129,7 @@ initial begin
 
     send_sample(16'sd32, -16'sd24, 1'b0);
     send_sample(16'sd64, -16'sd48, 1'b0);
-    repeat (2) @(posedge clk);
+    repeat (3) @(posedge clk);
     if (out_count != 3) fail("weak timing symbol was not emitted");
     if (low_timing_margin_count != 32'd1) fail("weak timing margin was not counted");
     if (timing_margin_accum != 32'd1469) fail("phase-weighted matched-filter timing margin total mismatch");

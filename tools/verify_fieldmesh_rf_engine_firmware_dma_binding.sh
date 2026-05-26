@@ -15,6 +15,7 @@ adc_source = (repo / "rtl/fieldmesh/fieldmesh_iq_adc_axis_source.v").read_text(e
 qpsk_symbolizer = (repo / "rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v").read_text(encoding="utf-8")
 iq_fir = (repo / "rtl/fieldmesh/fieldmesh_iq_fir_filter.v").read_text(encoding="utf-8")
 qpsk_timing = (repo / "rtl/fieldmesh/fieldmesh_qpsk_symbol_timing_recovery.v").read_text(encoding="utf-8")
+qpsk_demod = (repo / "rtl/fieldmesh/fieldmesh_qpsk_iq_demodulator.v").read_text(encoding="utf-8")
 byte_sync = (repo / "rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v").read_text(encoding="utf-8")
 whitener = (repo / "rtl/fieldmesh/fieldmesh_axis_payload_whitener.v").read_text(encoding="utf-8")
 header_framer = (repo / "rtl/fieldmesh/fieldmesh_axis_header_framer.v").read_text(encoding="utf-8")
@@ -46,7 +47,6 @@ required_patcher_tokens = [
     "ad_connect fieldmesh_ctrl/fw_dma_retry_budget fieldmesh_fw_dma_endpoint/retry_budget",
     "ad_connect fieldmesh_ctrl/fw_dma_descriptor_flags fieldmesh_fw_dma_endpoint/descriptor_flags",
     "ad_connect fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed",
-    "ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_tx_whitener/s_axis",
     "ad_connect fieldmesh_qpsk_tx_whitener/m_axis_tdata fieldmesh_qpsk_symbolizer/s_axis_tdata",
     "ad_connect fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_qpsk_tx_fir/s_axis_tdata",
     "ad_connect fieldmesh_qpsk_tx_fir/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata",
@@ -79,10 +79,10 @@ required_patcher_tokens = [
     "ad_connect fieldmesh_fw_dma_endpoint/mac_pump_done_count fieldmesh_ctrl/fw_dma_mac_pump_done_count",
     "ad_connect fieldmesh_fw_dma_endpoint/bram_crc_error_count fieldmesh_ctrl/fw_dma_bram_crc_error_count",
     "ad_connect fieldmesh_fw_dma_endpoint/bram_bounds_error_count fieldmesh_ctrl/fw_dma_bram_bounds_error_count",
-    "fw_dma_defaults=not dma_overlay",
+    "fw_dma_defaults=not dma_overlay or rf_engine_overlay",
     "variant_name=variant_name",
-    "use_firmware_endpoint=not (variant_name == \"z103\" and rf_engine_overlay)",
-    "Z103 RF-engine profile feeds packet bytes directly into the PL QPSK path",
+    "use_firmware_endpoint=not rf_engine_overlay",
+    "RF-engine profile feeds packet bytes directly into the PL QPSK path",
     "CONFIG.SYNTH_LIGHT {2}",
     "CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ 80.0",
     "create_clock -name clk_fpga_0 -period 12.5",
@@ -93,7 +93,7 @@ required_patcher_tokens = [
     "CONFIG.DAC_DDS_DISABLE 1",
     "CONFIG.DAC_IQCORRECTION_DISABLE 1",
     "CONFIG.RING_SLOTS {4} CONFIG.PL_SERVICE_SLOTS {1} CONFIG.ENABLE_PL_SERVICE {0}",
-    "ring_overlay = control_overlay and not (variant_name == \"z103\" and rf_engine_overlay)",
+    "ring_overlay = control_overlay and not rf_engine_overlay",
     "render_rf_engine_overlay(variant_name)",
 ]
 for token in required_patcher_tokens:
@@ -115,7 +115,6 @@ for forbidden in (
         raise SystemExit(f"RF-engine overlay must not feed symbolizer from sidecar bridge: {forbidden}")
 
 required_checker_tokens = [
-    "fieldmesh_fw_dma_endpoint",
     "fieldmesh_iq_adc_source",
     "fieldmesh_qpsk_tx_whitener",
     "fieldmesh_qpsk_rx_fir",
@@ -136,10 +135,8 @@ required_checker_tokens = [
     "fieldmesh_qpsk_rx_fir must not emit packet-tail flush samples on the continuous RX stream",
     "fieldmesh_qpsk_timing_recovery must phase-weight matched-filter 2x oversampled QPSK symbols in PL",
     "register pages through 0x23c",
-    "fieldmesh_fw_dma_endpoint/m_rx_dma",
     "fieldmesh_axis16_adapter/m_axis8 fieldmesh_qpsk_tx_whitener/s_axis",
     "proc assert_same_intf_net",
-    "{fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_tx_whitener/s_axis}",
     "{fieldmesh_axis16_adapter/m_axis8 fieldmesh_qpsk_tx_whitener/s_axis}",
     "{fieldmesh_qpsk_tx_whitener/m_axis_tdata fieldmesh_qpsk_symbolizer/s_axis_tdata}",
     "{fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_qpsk_tx_fir/s_axis_tdata}",
@@ -198,20 +195,12 @@ required_checker_tokens = [
     "fieldmesh_ctrl/qpsk_sync_search_drop_count",
     "fieldmesh_ctrl/qpsk_rx_crc_error_count",
     "fieldmesh_ctrl/qpsk_rx_fault",
-    "Z103 RF engine must omit the firmware DMA endpoint and use direct PL QPSK DMA to fit xc7z010",
-    "Z103 RF engine must omit the parked sidecar bridge to fit xc7z010",
+    "RF engine overlays must omit the descriptor firmware DMA endpoint; the performance path uses direct PL QPSK DMA",
+    "RF engine overlays must omit the standalone sidecar ring; the performance path uses direct DMA/QPSK fabric",
+    "RF engine overlays must omit the parked sidecar bridge; Python/HIL glue is not part of the performance path",
     "Z103 RF engine must lower FPGA0 fabric clock to 80 MHz",
     "Z103 RF engine must use a 12.5 ns clk_fpga_0 constraint",
     "Z103 RF engine must use the lean 1R1T/no-DDS/no-IQ-correction AD9361 profile",
-    "assert_same_net fieldmesh_ctrl/fw_dma_peer_index fieldmesh_fw_dma_endpoint/peer_index",
-    "assert_same_net fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed",
-    "assert_same_net fieldmesh_fw_dma_endpoint/mac_pump_done_count fieldmesh_ctrl/fw_dma_mac_pump_done_count",
-    "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_last_cycles fieldmesh_ctrl/fw_dma_service_latency_last_cycles",
-    "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_max_cycles fieldmesh_ctrl/fw_dma_service_latency_max_cycles",
-    "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_accum_cycles fieldmesh_ctrl/fw_dma_service_latency_accum_cycles",
-    "assert_same_net fieldmesh_ctrl/fw_dma_service_latency_budget_cycles fieldmesh_fw_dma_endpoint/service_latency_budget_cycles",
-    "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_over_budget fieldmesh_ctrl/fw_dma_service_latency_over_budget",
-    "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_over_budget_count fieldmesh_ctrl/fw_dma_service_latency_over_budget_count",
 ]
 for token in required_checker_tokens:
     if token not in checker:
@@ -222,11 +211,23 @@ for token in (
     "integrates all samples",
     "CENTER_PHASE_WEIGHT",
     "weighted_i_sum",
+    "calc_weighted_i_sum",
+    "calc_fire",
     "filtered_data_next",
     "avg_sat16",
 ):
     if token not in qpsk_timing:
         raise SystemExit(f"fieldmesh_qpsk_symbol_timing_recovery.v missing matched-filter token: {token}")
+
+for token in (
+    "ST_MIX",
+    "ST_SYMBOL",
+    "stage_i_phase_term",
+    "stage_q_phase_term",
+    "stage_malformed_tlast",
+):
+    if token not in qpsk_demod:
+        raise SystemExit(f"fieldmesh_qpsk_iq_demodulator.v missing RX-clock pipeline token: {token}")
 
 for rtl in (
     '"rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v"',
@@ -320,7 +321,11 @@ for token in (
     "COEFF_0 = 16'sd427",
     "COEFF_4 = 16'sd8192",
     "TAIL_SAMPLES = 8",
-    "function signed [15:0] fir_sat16",
+    "one-sample-per-clock pipeline",
+    "function signed [15:0] sat16_from_acc",
+    "stage0_i_p0",
+    "stage1_i_a",
+    "stage2_i_acc",
     "tail_sample_count",
     "input_backpressure_cycle_count",
 ):
