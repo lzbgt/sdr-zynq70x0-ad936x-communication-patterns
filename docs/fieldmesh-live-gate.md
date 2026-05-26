@@ -115,6 +115,12 @@ If the JTAG scan passes but the RAM boot fails before payload loading with
 PS debug-state gate. The recovery path is physical JTAG-mode power cycle, not a
 flash write.
 
+For Z103, the RAM-boot helpers default `JTAG_PS_RESET=0` after the DAP-halt
+preflight. The SLCR/DAP soft-reset helper can itself wedge the Z103 debug port,
+so the safe live sequence is physical JTAG-mode power cycle, DAP preflight,
+then direct PS7 init and payload load. Set `JTAG_PS_RESET=1` only for a
+deliberate reset experiment.
+
 If RAM boot succeeds but sidecar preflight fails, keep the full live-gate
 directory and inspect the three raw captures:
 

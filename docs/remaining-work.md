@@ -1879,10 +1879,11 @@ Verified so far:
 - `tools/run_openocd_jtag_uboot.sh` initializes PS/DDR by translating the
   generated Xilinx `ps7_init.tcl` flow to OpenOCD memory writes, then loads and
   runs the rebuilt `u-boot.elf` from DDR.
-- The PS-side JTAG helpers run `tools/reset_openocd_zynq_ps.sh` by default.
-  This issues a volatile SLCR PS reset through DAP memory writes and clears the
-  sticky ARM debug state that previously required a manual JTAG-mode power
-  cycle.
+- Z103-specific PS-side JTAG helpers now default `JTAG_PS_RESET=0` after the
+  DAP-halt preflight. The volatile SLCR PS reset goes through the same DAP path
+  that can wedge this board, so the safe Z103 recovery flow is physical
+  JTAG-mode power cycle, DAP preflight, then direct PS7 init and payload load.
+  Use `JTAG_PS_RESET=1` only for a deliberate reset experiment.
 - USB console capture from the JTAG-loaded U-Boot path showed U-Boot starting,
   detecting 1 GiB DDR, detecting QSPI flash, and entering the Pluto U-Boot boot
   flow.

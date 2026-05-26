@@ -55,9 +55,19 @@ generic_ram = (repo / "tools/run_fieldmesh_jtag_yocto_ram.sh").read_text(encodin
 for token in [
     'if [[ "$variant" == "z103" ]]',
     "fieldmesh_run_zynq_dap_halt_preflight",
+    'export JTAG_PS_RESET="${JTAG_PS_RESET:-0}"',
 ]:
     if token not in generic_ram:
         missing.append(f"run_fieldmesh_jtag_yocto_ram.sh missing Z103 DAP preflight token: {token}")
+
+for rel in [
+    "tools/run_openocd_z103_jtag_uboot.sh",
+    "tools/run_openocd_z103_jtag_fit_ram.sh",
+    "tools/run_openocd_z103_jtag_qspi_linux.sh",
+]:
+    text = (repo / rel).read_text(encoding="utf-8")
+    if 'JTAG_PS_RESET:-0' not in text:
+        missing.append(f"{rel}: Z103 helper must default to skipping DAP/SLCR PS soft reset")
 
 live_gate = (repo / "tools/run_fieldmesh_live_gate.sh").read_text(encoding="utf-8")
 for token in [
