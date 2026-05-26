@@ -1893,6 +1893,10 @@ Verified so far:
   lighttpd/web, and UI library payloads that do not affect RF/IP `iperf`. The
   current prepared Z103 RAM-boot initramfs is about 9.9 MiB. Use
   `JTAG_PS_RESET=1` only for a deliberate reset experiment.
+- Z103 JTAG helpers default to a single-core OpenOCD Zynq target. The stock
+  `target/zynq_7000.cfg` SMP target path can crash OpenOCD at Cortex-A9
+  `resume` on this board/session; a live single-core hello test ran from DDR
+  and printed on UART, while the SMP target segfaulted before UART output.
 - USB console capture from the JTAG-loaded U-Boot path showed U-Boot starting,
   detecting 1 GiB DDR, detecting QSPI flash, and entering the Pluto U-Boot boot
   flow.

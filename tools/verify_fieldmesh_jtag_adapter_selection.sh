@@ -36,6 +36,8 @@ for rel in openocd_scripts:
         missing.append(f"{rel}: does not emit board-selective adapter serial Tcl")
     if "adapter speed $adapter_speed" not in text:
         missing.append(f"{rel}: adapter speed is not environment-bound")
+    if "fieldmesh_openocd_zynq_target_tcl" not in text and "zynq_target_tcl" not in text:
+        missing.append(f"{rel}: does not use the FieldMesh Zynq target helper")
     source_idx = text.find("source [find target/zynq_7000.cfg]")
     if source_idx >= 0 and "adapter speed $adapter_speed" not in text[source_idx:source_idx + 96]:
         missing.append(f"{rel}: does not reapply adapter speed after zynq_7000.cfg")
@@ -93,14 +95,24 @@ for rel in [
     if 'JTAG_PS_RESET:-0' not in text:
         missing.append(f"{rel}: Z103 helper must default to skipping DAP/SLCR PS soft reset")
 
-linux_ram = (repo / "tools/run_openocd_jtag_linux_ram.sh").read_text(encoding="utf-8")
-for token in [
-    "CPU0_SCTLR_AFTER_CLEAR",
-    "arm mcr 15 0 1 0 0 \\$sctlr",
-    "~0x1005",
+for rel in [
+    "tools/run_openocd_jtag_linux_ram.sh",
+    "tools/run_openocd_jtag_uboot.sh",
+    "tools/run_openocd_z103_jtag_fit_ram.sh",
+    "tools/run_openocd_z103_jtag_qspi_linux.sh",
+    "tools/run_openocd_jtag_fsbl_handoff.sh",
+    "tools/run_openocd_jtag_hello.sh",
 ]:
-    if token not in linux_ram:
-        missing.append(f"run_openocd_jtag_linux_ram.sh missing CPU flat-addressing token: {token}")
+    text = (repo / rel).read_text(encoding="utf-8")
+    for token in [
+        "CPU0_SCTLR_AFTER_CLEAR",
+        "arm mcr 15 0 1 0 0 \\$sctlr",
+        "~0x1005",
+    ]:
+        if token not in text:
+            missing.append(f"{rel} missing CPU flat-addressing token: {token}")
+    if "\npoll off\nresume\n" not in text:
+        missing.append(f"{rel}: must disable OpenOCD polling before resume handoff")
 
 live_gate = (repo / "tools/run_fieldmesh_live_gate.sh").read_text(encoding="utf-8")
 for token in [
@@ -126,6 +138,10 @@ for token in [
     "z103) ftdi_serial=\"CKQCQFHQPUJB\"",
     "adapter serial %s",
     "gdb_port disabled",
+    "fieldmesh_openocd_zynq_target_tcl",
+    "FIELDMESH_OPENOCD_SINGLE_CORE_TARGET",
+    "target create zynq.cpu0 cortex_a",
+    "pld device virtex2 zynq_pl.bs 1",
     "fieldmesh_run_zynq_dap_halt_preflight",
     "RUN_DAP_HALT_PREFLIGHT must be 0 or 1",
     "/dev/serial/by-id",

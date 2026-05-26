@@ -16,6 +16,7 @@ run_post_config_before_fsbl="${RUN_POST_CONFIG_BEFORE_FSBL:-0}"
 probe_pl_axi_after_fsbl="${PROBE_PL_AXI_AFTER_FSBL:-0}"
 ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
 no_gdb_tcl="$(fieldmesh_openocd_no_gdb_tcl)"
+zynq_target_tcl="$(fieldmesh_openocd_zynq_target_tcl)"
 
 for path in "$ps7_init" "$fsbl_elf"; do
   if [[ ! -f "$path" ]]; then
@@ -94,7 +95,7 @@ reset_config none
 adapter speed $adapter_speed
 $no_gdb_tcl
 transport select jtag
-source [find target/zynq_7000.cfg]
+$zynq_target_tcl
 adapter speed $adapter_speed
 init
 targets zynq.cpu0
@@ -150,6 +151,11 @@ proc perf_reset_and_start_timer {} {}
 
 _dump_state PREFSBL_PRE_PS7_STATE
 
+set sctlr [arm mrc 15 0 1 0 0]
+set sctlr [expr {\$sctlr & ~0x1005}]
+arm mcr 15 0 1 0 0 \$sctlr
+echo "CPU0_SCTLR_AFTER_CLEAR \$sctlr"
+
 echo RUN_PS7_INIT_3_0_WITHOUT_POST_CONFIG
 ps7_mio_init_data_3_0
 ps7_pll_init_data_3_0
@@ -167,6 +173,7 @@ echo LOAD_FSBL_ELF
 load_image {$fsbl_elf}
 echo RUN_FSBL_FOR_JTAG_HANDOFF
 reg pc 0x00000000
+poll off
 resume
 sleep $((run_seconds * 1000))
 halt

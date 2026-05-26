@@ -29,6 +29,9 @@ fieldmesh_set_jtag_defaults() {
   esac
 
   export OPENOCD_FTDI_SERIAL="${OPENOCD_FTDI_SERIAL:-$ftdi_serial}"
+  if [[ "$variant" == "z103" ]]; then
+    export FIELDMESH_OPENOCD_SINGLE_CORE_TARGET="${FIELDMESH_OPENOCD_SINGLE_CORE_TARGET:-1}"
+  fi
   if [[ -z "${SERIAL_DEV:-}" ]]; then
     if serial_dev="$(fieldmesh_jtag_default_serial_dev "$OPENOCD_FTDI_SERIAL")"; then
       export SERIAL_DEV="$serial_dev"
@@ -50,6 +53,32 @@ fieldmesh_openocd_ftdi_serial_tcl() {
 
 fieldmesh_openocd_no_gdb_tcl() {
   printf 'gdb_port disabled\n'
+}
+
+fieldmesh_openocd_zynq_target_tcl() {
+  case "${FIELDMESH_OPENOCD_SINGLE_CORE_TARGET:-0}" in
+    0)
+      printf 'source [find target/zynq_7000.cfg]\n'
+      ;;
+    1)
+      cat <<'TCL'
+set _CHIPNAME zynq
+jtag newtap zynq_pl bs -irlen 6 -ircapture 0x1 -irmask 0x03 \
+    -expected-id 0x23727093 \
+    -expected-id 0x13722093 \
+    -expected-id 0x03727093 \
+    -expected-id 0x03736093
+jtag newtap $_CHIPNAME cpu -irlen 4 -ircapture 0x1 -irmask 0xf -expected-id 0x4ba00477
+dap create $_CHIPNAME.dap -chain-position $_CHIPNAME.cpu
+target create zynq.cpu0 cortex_a -dap $_CHIPNAME.dap -coreid 0 -dbgbase 0x80090000
+pld device virtex2 zynq_pl.bs 1
+TCL
+      ;;
+    *)
+      echo "FIELDMESH_OPENOCD_SINGLE_CORE_TARGET must be 0 or 1" >&2
+      return 2
+      ;;
+  esac
 }
 
 fieldmesh_run_zynq_dap_halt_preflight() {

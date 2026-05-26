@@ -12,6 +12,7 @@ load_pl_bitstream="${LOAD_PL_BITSTREAM:-1}"
 pl_load_after_ps7_init="${PL_LOAD_AFTER_PS7_INIT:-0}"
 ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
 no_gdb_tcl="$(fieldmesh_openocd_no_gdb_tcl)"
+zynq_target_tcl="$(fieldmesh_openocd_zynq_target_tcl)"
 
 if [[ ! -f "$ps7_init" ]]; then
   echo "PS7 init Tcl not found: $ps7_init" >&2
@@ -52,7 +53,7 @@ reset_config none
 adapter speed $adapter_speed
 $no_gdb_tcl
 transport select jtag
-source [find target/zynq_7000.cfg]
+$zynq_target_tcl
 adapter speed $adapter_speed
 init
 targets zynq.cpu0

@@ -130,6 +130,12 @@ current prepared Z103 RAM-boot initramfs is about 9.9 MiB instead of the
 original 22 MiB image. Set `JTAG_PS_RESET=1` only for a deliberate reset
 experiment.
 
+Z103 also defaults to a single-core OpenOCD Zynq target. The stock
+`target/zynq_7000.cfg` creates an SMP CPU0/CPU1 target, and live tests showed
+OpenOCD segfaulting at the Cortex-A9 resume handoff. The single-core target
+keeps the PL JTAG tap and CPU0 DAP only, matching the current `maxcpus=1`
+Z103 recovery boot contract.
+
 If RAM boot succeeds but sidecar preflight fails, keep the full live-gate
 directory and inspect the three raw captures:
 

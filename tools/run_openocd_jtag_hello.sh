@@ -12,6 +12,7 @@ jtag_ps_reset="${JTAG_PS_RESET:-1}"
 adapter_speed="${ADAPTER_SPEED:-1000}"
 ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
 no_gdb_tcl="$(fieldmesh_openocd_no_gdb_tcl)"
+zynq_target_tcl="$(fieldmesh_openocd_zynq_target_tcl)"
 
 if [[ ! -f "$hello_elf" ]]; then
   "$repo_root/tools/build_jtag_hello_elf.sh"
@@ -75,7 +76,7 @@ reset_config none
 adapter speed $adapter_speed
 $no_gdb_tcl
 transport select jtag
-source [find target/zynq_7000.cfg]
+$zynq_target_tcl
 adapter speed $adapter_speed
 init
 targets zynq.cpu0
@@ -137,6 +138,7 @@ echo LOAD_JTAG_HELLO_ELF
 load_image {$hello_elf}
 echo RUN_JTAG_HELLO
 reg pc 0x04000000
+poll off
 resume
 sleep $((run_seconds * 1000))
 shutdown

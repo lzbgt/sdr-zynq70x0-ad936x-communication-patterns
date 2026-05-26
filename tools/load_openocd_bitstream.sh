@@ -7,6 +7,7 @@ bitstream="${1:-.config/vivado-hdl/hdl/projects/pluto/pluto.runs/impl_1/system_t
 adapter_speed="${ADAPTER_SPEED:-1000}"
 ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
 no_gdb_tcl="$(fieldmesh_openocd_no_gdb_tcl)"
+zynq_target_tcl="$(fieldmesh_openocd_zynq_target_tcl)"
 
 if [[ ! -f "$bitstream" ]]; then
   echo "Bitstream not found: $bitstream" >&2
@@ -29,7 +30,7 @@ openocd -s /usr/share/openocd/scripts -c "
   adapter speed $adapter_speed
   $no_gdb_tcl
   transport select jtag
-  source [find target/zynq_7000.cfg]
+  $zynq_target_tcl
   adapter speed $adapter_speed
   init
   pld load 0 $bitstream

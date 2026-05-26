@@ -106,7 +106,7 @@ reset_config none
 adapter speed $adapter_speed
 $(fieldmesh_openocd_no_gdb_tcl)
 transport select jtag
-source [find target/zynq_7000.cfg]
+$(fieldmesh_openocd_zynq_target_tcl)
 adapter speed $adapter_speed
 init
 targets zynq.cpu0
@@ -151,6 +151,11 @@ proc perf_start_clock {} {}
 proc perf_disable_clock {} {}
 proc perf_reset_and_start_timer {} {}
 
+set sctlr [arm mrc 15 0 1 0 0]
+set sctlr [expr {\$sctlr & ~0x1005}]
+arm mcr 15 0 1 0 0 \$sctlr
+echo "CPU0_SCTLR_AFTER_CLEAR \$sctlr"
+
 echo RUN_PS7_INIT_3_0
 ps7_mio_init_data_3_0
 ps7_pll_init_data_3_0
@@ -165,6 +170,7 @@ echo LOAD_UBOOT_ELF
 load_image {$uboot_elf}
 echo RUN_UBOOT_FOR_FIT_RAM_BOOT
 reg pc 0x04000000
+poll off
 resume
 shutdown
 TCL

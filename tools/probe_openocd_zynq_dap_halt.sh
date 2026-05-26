@@ -23,6 +23,7 @@ halt_timeout_ms="${HALT_TIMEOUT_MS:-3000}"
 out_file="${OUT:-}"
 ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
 no_gdb_tcl="$(fieldmesh_openocd_no_gdb_tcl)"
+zynq_target_tcl="$(fieldmesh_openocd_zynq_target_tcl)"
 
 if ! [[ "$adapter_speed" =~ ^[0-9]+$ ]] || [[ "$adapter_speed" -lt 1 ]]; then
   echo "ADAPTER_SPEED must be a positive integer" >&2
@@ -58,7 +59,7 @@ reset_config none
 adapter speed $adapter_speed
 $no_gdb_tcl
 transport select jtag
-source [find target/zynq_7000.cfg]
+$zynq_target_tcl
 adapter speed $adapter_speed
 init
 scan_chain

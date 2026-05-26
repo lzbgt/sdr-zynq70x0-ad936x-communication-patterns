@@ -31,6 +31,7 @@ uboot_command_interval_seconds="${UBOOT_COMMAND_INTERVAL_SECONDS:-0.4}"
 bootargs="${BOOTARGS:-console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk}"
 ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
 no_gdb_tcl="$(fieldmesh_openocd_no_gdb_tcl)"
+zynq_target_tcl="$(fieldmesh_openocd_zynq_target_tcl)"
 
 for path in "$ps7_init" "$uboot_elf" "$kernel_image" "$ramdisk_image" "$devicetree_image"; do
   if [[ ! -f "$path" ]]; then
@@ -149,7 +150,7 @@ reset_config none
 adapter speed $adapter_speed
 $no_gdb_tcl
 transport select jtag
-source [find target/zynq_7000.cfg]
+$zynq_target_tcl
 adapter speed $adapter_speed
 init
 targets zynq.cpu0
@@ -221,6 +222,7 @@ echo LOAD_UBOOT_ELF
 load_image {$uboot_elf}
 echo RUN_UBOOT_FOR_RAM_BOOT
 reg pc 0x04000000
+poll off
 resume
 shutdown
 TCL

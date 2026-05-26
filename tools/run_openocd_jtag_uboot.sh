@@ -12,6 +12,7 @@ jtag_ps_reset="${JTAG_PS_RESET:-1}"
 adapter_speed="${ADAPTER_SPEED:-1000}"
 ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
 no_gdb_tcl="$(fieldmesh_openocd_no_gdb_tcl)"
+zynq_target_tcl="$(fieldmesh_openocd_zynq_target_tcl)"
 
 if [[ ! -f "$ps7_init" ]]; then
   echo "PS7 init Tcl not found: $ps7_init" >&2
@@ -75,7 +76,7 @@ reset_config none
 adapter speed $adapter_speed
 $no_gdb_tcl
 transport select jtag
-source [find target/zynq_7000.cfg]
+$zynq_target_tcl
 adapter speed $adapter_speed
 init
 targets zynq.cpu0
@@ -120,6 +121,11 @@ proc perf_start_clock {} {}
 proc perf_disable_clock {} {}
 proc perf_reset_and_start_timer {} {}
 
+set sctlr [arm mrc 15 0 1 0 0]
+set sctlr [expr {\$sctlr & ~0x1005}]
+arm mcr 15 0 1 0 0 \$sctlr
+echo "CPU0_SCTLR_AFTER_CLEAR \$sctlr"
+
 echo RUN_PS7_INIT_3_0
 ps7_mio_init_data_3_0
 ps7_pll_init_data_3_0
@@ -132,6 +138,7 @@ echo LOAD_UBOOT_ELF
 load_image {$uboot_elf}
 echo RUN_UBOOT
 reg pc 0x04000000
+poll off
 resume
 sleep $((run_seconds * 1000))
 halt

@@ -9,6 +9,7 @@ probe_timeout_seconds="${PROBE_TIMEOUT_SECONDS:-90}"
 jtag_ps_reset="${JTAG_PS_RESET:-1}"
 ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
 no_gdb_tcl="$(fieldmesh_openocd_no_gdb_tcl)"
+zynq_target_tcl="$(fieldmesh_openocd_zynq_target_tcl)"
 
 if [[ ! -f "$ps7_init" ]]; then
   echo "PS7 init Tcl not found: $ps7_init" >&2
@@ -40,7 +41,7 @@ reset_config none
 adapter speed $adapter_speed
 $no_gdb_tcl
 transport select jtag
-source [find target/zynq_7000.cfg]
+$zynq_target_tcl
 adapter speed $adapter_speed
 init
 targets zynq.cpu0
