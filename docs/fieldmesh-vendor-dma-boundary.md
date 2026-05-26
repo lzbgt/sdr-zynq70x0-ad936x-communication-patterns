@@ -572,14 +572,31 @@ system_top.xsa  734bf14e8eb2577fd7cbe18335e7d9d659e95748172057a4d48016932d3b72e1
 
 The matching canonical Z203 runtime package is
 `.config/fieldmesh/runtime-package-z203/fit-work/build/pluto.frm` with SHA-256
-`4ac52d88a5c414d6076ba2f3e34a4c628d23eb420be8184669384fb3270d02c6`.
+`b78bd93d49274403fb9588ef75222ae577491dabcd5f5300067947ca27c7d67e`.
+The matching rootfs and FIT hashes are:
+
+```text
+rootfs.cpio.gz  25b18c155e7b711d6681c6619071e62a5e1541f98f627ee9f22e72d4cb008d34
+rootfs.tar.gz   99e60f6622dc4bff57db414e3af1ba14f9d0c38d8e781a30ee2e1d6ab965f07a
+pluto.itb       81d3c7711d65e101c8f8ad3c2375ef72440488c0b243eddbbedc63aeebf2da1e
+```
+
 The matching Z203 JTAG RAM-boot prepare-only payload hashes are:
 
 ```text
 uImage             ec5c538fccdd28e1c59e27f7e18b033aead1b4f4f9ac4222a4f05ebaf7d612e2
-uramdisk.image.gz  ff2f05427bf868e0a4e96ba49be233d9f5776842bf5b94904998c7902eb0dbc6
+uramdisk.image.gz  2d77874dcf2624c11ec6afce7671a4f9e5768739bbeea5100aae6967bcac925b
 devicetree.dtb     6e3292478c9c3dd201c179fc78ad05531966b1a5671ceb45dc527ca25b4875c2
 ```
+
+The 2026-05-26 live Z203 refresh used the SD/initramfs install path because
+Z203 QSPI `mtd3` remains an untrusted install target with the known dominant
+`0x44` unexpected-one-bit readback signature. The refreshed SD boot partition
+verified `BOOT.bin`, `devicetree.dtb`, `uEnv.txt`, `uImage`, and
+`uramdisk.image.gz`; after reboot the board returned at `192.168.1.10`, the
+state daemon answered `FIELDMESH_HELLO`, and the board-side C
+`fieldmesh-ctrl-write --qpsk-rx-diag` hardware-read path reported the live PL
+QPSK diagnostic page with `reads_hardware=true` and `writes_hardware=false`.
 
 The current timing-clean lean Z103 RF-engine build artifacts are:
 

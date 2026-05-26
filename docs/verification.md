@@ -5448,3 +5448,46 @@ actual PHY TX/RX and measuring ICMP/TCP/UDP over radio.
   generated bootloader artifacts have not been flashed to QSPI `mtd0`/`mtd1`.
 - PS-side JTAG U-Boot launch and a standalone/no-OS ELF smoke test are verified
   through OpenOCD. Linux-from-RAM over JTAG is still open.
+
+## 2026-05-26 Z203 RF-Engine SD Runtime Refresh
+
+The Z203 RF-engine rootfs was rebuilt after the C QPSK diagnostic tooling landed
+in `fieldmesh-rf-tools`, then redeployed through the SD/initramfs path because
+the live Z203 QSPI path still reports the known `0x44` stuck/unexpected-bit
+readback signature. A direct QSPI `pluto.frm` install attempt failed at
+`flashcp` verify offset `0x00000000`, and the follow-up
+`diagnose_z203_qspi_integrity.sh 192.168.1.10` report again classified
+`safe_z203_install_mode=sd`.
+
+Verified commands:
+
+```sh
+./tools/yocto_arm_as_builder.sh bitbake sdr-z203-arm-image
+OUT_DIR=.config/fieldmesh/z203-sd-rf-engine-install-20260526-212512/stage \
+  ./tools/stage_fieldmesh_sd_boot_files.sh z203
+SSH_PASS=analog ./tools/install_sd_boot_files_over_ssh.sh \
+  .config/fieldmesh/z203-sd-rf-engine-install-20260526-212512/stage \
+  192.168.1.10
+./tools/package_fieldmesh_pluto_frm.sh z203
+PREPARE_ONLY=1 ./tools/run_fieldmesh_jtag_yocto_ram.sh z203
+./tools/verify_fieldmesh_runtime_artifacts.sh z203
+```
+
+After reboot, Z203 returned at `192.168.1.10`, the state daemon answered
+`FIELDMESH_HELLO`, and `FIELD_MESH_ALLOW_HARDWARE_READS=1
+fieldmesh-ctrl-write --qpsk-rx-diag` read the live PL QPSK diagnostic page with
+`reads_hardware=true`, `writes_hardware=false`, no RX packet lock, and no
+reported RX fault. No RF TX was started and no live TCP/UDP iperf was measured
+because Z103 remains unreachable: JTAG scan passes on FTDI serial
+`CKQCQFHQPUJB`, but ARM DAP halt still fails with
+`dap_dscr_halt_timeout` and `requires_physical_power_cycle=true`.
+
+Refreshed hashes:
+
+```text
+Z203 rootfs.cpio.gz: 25b18c155e7b711d6681c6619071e62a5e1541f98f627ee9f22e72d4cb008d34
+Z203 rootfs.tar.gz:  99e60f6622dc4bff57db414e3af1ba14f9d0c38d8e781a30ee2e1d6ab965f07a
+Z203 pluto.frm:      b78bd93d49274403fb9588ef75222ae577491dabcd5f5300067947ca27c7d67e
+Z203 pluto.itb:      81d3c7711d65e101c8f8ad3c2375ef72440488c0b243eddbbedc63aeebf2da1e
+Z203 JTAG ramdisk:   2d77874dcf2624c11ec6afce7671a4f9e5768739bbeea5100aae6967bcac925b
+```
